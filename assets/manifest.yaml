@@ -1,0 +1,18 @@
+# 开源及第三方资源使用清单
+#
+# 赛事规则要求逐项说明：名称及类型、版本/来源、许可证/授权类型、
+# 使用/开放方式、关键义务或限制、团队自主修改或开发内容、合规状态。
+#
+# 规则强调：公开可访问不等于当然具有复制、训练、改编或再分发授权。
+# 用一个就登记一个，不要事后补。
+
+resources:
+  - name: Apache License 2.0
+    type: 许可证
+    version: "2.0"
+    source: https://www.apache.org/licenses/LICENSE-2.0
+    license: Apache-2.0
+    usage: 本项目代码的开源许可
+    obligations: 保留版权声明与 NOTICE，变更需注明
+    self_modification: 无
+    compliance: 已核验

@@ -1,0 +1,16 @@
+# 核心
+numpy>=1.24,<2.0
+pyyaml>=6.0
+requests>=2.31
+
+# 感知（w）
+opencv-python>=4.8
+onnxruntime>=1.16
+
+# 语音（w）
+sherpa-onnx>=1.10
+
+# 后端（队长）
+fastapi>=0.110
+uvicorn[standard]>=0.27
+websockets>=12.0
