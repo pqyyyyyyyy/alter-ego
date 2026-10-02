@@ -1,0 +1,54 @@
+# ============ 私有素材与敏感数据护栏（最高优先，勿删）============
+assets/private/
+characters/*/sprites/
+characters/*/voice/
+models/
+data/users/
+
+*.pth
+*.ckpt
+*.safetensors
+*.gguf
+*.om
+*.onnx
+*.moc3
+*.model3.json
+*.vrm
+*.wav
+*.mp3
+
+# 默认开放许可素材的白名单豁免（确认许可证后逐个解除）
+!assets/default/**
+
+# ============ 密钥与凭据 ============
+.env
+.env.*
+*.key
+*.pem
+providers.local.yaml
+
+# ============ Python ============
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# ============ 前端 ============
+node_modules/
+dist/
+
+# ============ 编辑器与系统 ============
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ============ 其他 ============
+*.log
+tmp/
