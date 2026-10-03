@@ -42,7 +42,26 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
 #layer-char[data-emotion="surprised"] { background: rgba(  0, 220, 220, .6); }
 #layer-char[data-emotion="angry"]     { background: rgba(255,  40,  40, .6); }
 #layer-char[data-emotion="shy"]       { background: rgba(255, 130, 200, .6); }
+/* 三档嘴型用色块高度表示，中心固定在 49vh */
+#layer-mouth[data-mouth="close"] { top: 48.5vh; height: 1vh; }
+#layer-mouth[data-mouth="half"]  { top: 47vh;   height: 4vh; }
+#layer-mouth[data-mouth="open"]  { top: 45vh;   height: 8vh; }
 /* ===== 占位结束 ===== */
+
+/* 自动播放被拦时的提示（板子 kiosk 模式下不会出现） */
+#tip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  padding: 1em 2em;
+  font-size: 3vh;
+  color: #fff;
+  background: rgba(0, 0, 0, .75);
+  border-radius: 1vh;
+}
+#tip[hidden] { display: none; }
 
 /* 调试面板（renderer.js 里 DEBUG=true 时出现） */
 #debug {

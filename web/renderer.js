@@ -67,22 +67,137 @@ function setBackground(file) {
   $("layer-bg").style.backgroundImage = `url("${BG_DIR}${encodeURIComponent(file)}")`;
 }
 
+// ======================== 说话 + 口型同步 ========================
+const MOUTH = {
+  close: SPRITE_DIR + "mouth_close.png",
+  half:  SPRITE_DIR + "mouth_half.png",
+  open:  SPRITE_DIR + "mouth_open.png",
+};
+
+let currentAudio = null;     // 正在播放的音频；新 speak 到来时用它打断旧的
+let currentMouth = null;
+
+// 开口度 0~1 → 三档嘴型
+function mouthLevel(v) {
+  return v < 0.33 ? "close" : v < 0.66 ? "half" : "open";
+}
+
+function setMouth(level) {
+  if (level === currentMouth) return;       // 没变就不动 DOM，省性能
+  currentMouth = level;
+  const el = $("layer-mouth");
+  el.dataset.mouth = level;                 // 占位模式靠它改色块高度
+  if (!PLACEHOLDER) el.src = MOUTH[level];
+}
+
+// 后端发的是 "/audio/xxx.wav" 这种相对后端的路径，要拼上后端地址；
+// 完整 URL（http:、blob:）保持原样
+function resolveAudioUrl(path) {
+  return new URL(path, WS_URL.replace(/^ws/, "http")).href;
+}
+
+function stopSpeaking() {
+  if (!currentAudio) return;
+  const old = currentAudio;
+  currentAudio = null;                      // 先置空，旧音频的回调就不会再生效
+  old.pause();
+  old.removeAttribute("src");
+  old.load();                               // 释放音频资源
+  setMouth("close");
+}
+
 function speak(msg) {
-  // 下一阶段实现：播音频 + 口型同步 + 回发 audio_ended
+  stopSpeaking();                           // 说话中又来新的一句：打断旧的
   setSubtitle(msg.text);
+  if (!msg.audio) return;
+
+  const audio  = new Audio(resolveAudioUrl(msg.audio));
+  const frames = Array.isArray(msg.mouth) ? msg.mouth : [];
+  currentAudio = audio;
+
+  let finished = false;
+  let watchdog = null;
+  // 无论正常播完还是出错，都只通知后端一次，否则后端会一直卡在 SPEAKING
+  function finish(reason) {
+    if (finished || audio !== currentAudio) return;
+    finished = true;
+    currentAudio = null;
+    clearTimeout(watchdog);
+    setMouth("close");
+    send({type: "audio_ended"});
+    if (reason !== "ended") console.warn("音频非正常结束:", reason);
+  }
+
+  // 用音频真实播放位置 currentTime 取开口度，而不是 setTimeout，才不会越说越错位
+  function tick() {
+    if (audio !== currentAudio || audio.paused || audio.ended) return;
+    const t = audio.currentTime * 1000;     // 秒 → 毫秒
+    let v = 0;
+    for (const [ms, val] of frames) {
+      if (ms <= t) v = val; else break;
+    }
+    setMouth(mouthLevel(v));
+    requestAnimationFrame(tick);
+  }
+
+  audio.onplay  = () => requestAnimationFrame(tick);
+  audio.onended = () => finish("ended");
+  audio.onerror = () => finish("音频加载失败 " + audio.src);
+
+  // 保险：超过预计时长 3 秒还没结束（卡住、网络断），强制收尾
+  const limit = (msg.duration_ms || 30000) + 3000;
+  watchdog = setTimeout(() => finish("超时"), limit);
+
+  play(audio);
+}
+
+function play(audio) {
+  audio.play().catch((err) => {
+    if (err.name === "NotAllowedError") {
+      // 浏览器自动播放限制：开发时点一下页面即可；板子 kiosk 启动参数会关掉这个限制
+      console.warn("浏览器禁止自动播放，点击页面任意处后播放");
+      showTip("点击屏幕以启用声音");
+      document.addEventListener("click", () => {
+        hideTip();
+        if (audio === currentAudio) play(audio);
+      }, {once: true});
+    } else {
+      console.error("播放失败", err);       // 其他错误交给 onerror / 看门狗收尾
+    }
+  });
+}
+
+function showTip(text) {
+  let el = $("tip");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "tip";
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.hidden = false;
+}
+
+function hideTip() {
+  const el = $("tip");
+  if (el) el.hidden = true;
 }
 
 // ======================== 预加载 ========================
-// 提前把六张立绘下载进缓存，避免第一次切换时闪一下
+// 提前把立绘和嘴型下载进缓存，避免第一次切换时闪一下
 function preload() {
   if (PLACEHOLDER) return;
   for (const e of EMOTIONS) new Image().src = SPRITE_DIR + e + ".png";
+  for (const src of Object.values(MOUTH)) new Image().src = src;
 }
 
 // ======================== WebSocket ========================
 let ws = null;
 
+const sentLog = [];          // mock 模式下记录"本该发给后端"的消息，方便自测
+
 function send(obj) {
+  if (USE_MOCK) { sentLog.push(obj); console.log("→ 发给后端:", obj); return; }
   if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
 }
 
@@ -110,11 +225,12 @@ function showDebug(msg) {
   el.textContent =
     `state:   ${currentState}\n` +
     `emotion: ${currentEmotion}\n` +
-    `last:    ${JSON.stringify(msg)}`;
+    `last:    ${JSON.stringify(msg).slice(0, 120)}`;
 }
 
 // ======================== 启动 ========================
 setEmotion("neutral");
+setMouth("close");
 preload();
-if (USE_MOCK) startMock(handle);
+if (USE_MOCK) { send({type: "ready"}); startMock(handle); }
 else          connect();
