@@ -74,8 +74,9 @@ const MOUTH = {
   open:  SPRITE_DIR + "mouth_open.png",
 };
 
-let currentAudio = null;     // 正在播放的音频；新 speak 到来时用它打断旧的
-let currentMouth = null;
+let currentAudio  = null;    // 正在播放的音频；新 speak 到来时用它打断旧的
+let currentFinish = null;    // 当前这句的收尾函数，打断时调用它通知后端
+let currentMouth  = null;
 
 // 开口度 0~1 → 三档嘴型
 function mouthLevel(v) {
@@ -99,11 +100,10 @@ function resolveAudioUrl(path) {
 function stopSpeaking() {
   if (!currentAudio) return;
   const old = currentAudio;
-  currentAudio = null;                      // 先置空，旧音频的回调就不会再生效
+  currentFinish("interrupted");             // 被打断也通知后端，并置空 currentAudio，旧回调不再生效
   old.pause();
   old.removeAttribute("src");
   old.load();                               // 释放音频资源
-  setMouth("close");
 }
 
 function speak(msg) {
@@ -117,16 +117,22 @@ function speak(msg) {
 
   let finished = false;
   let watchdog = null;
-  // 无论正常播完还是出错，都只通知后端一次，否则后端会一直卡在 SPEAKING
+  // 无论正常播完、被打断还是出错，都只通知后端一次，否则后端会一直卡在 SPEAKING。
+  // 被打断时额外带 interrupted: true，后端不关心可以忽略这个字段
   function finish(reason) {
     if (finished || audio !== currentAudio) return;
     finished = true;
-    currentAudio = null;
+    currentAudio = currentFinish = null;
     clearTimeout(watchdog);
     setMouth("close");
-    send({type: "audio_ended"});
-    if (reason !== "ended") console.warn("音频非正常结束:", reason);
+    if (reason === "interrupted") {
+      send({type: "audio_ended", interrupted: true});
+    } else {
+      send({type: "audio_ended"});
+      if (reason !== "ended") console.warn("音频非正常结束:", reason);
+    }
   }
+  currentFinish = finish;
 
   // 用音频真实播放位置 currentTime 取开口度，而不是 setTimeout，才不会越说越错位
   function tick() {
