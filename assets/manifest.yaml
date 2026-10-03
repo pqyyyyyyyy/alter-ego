@@ -16,3 +16,14 @@ resources:
     obligations: 保留版权声明与 NOTICE，变更需注明
     self_modification: 无
     compliance: 已核验
+
+  - name: Silero VAD 语音活动检测模型
+    type: 模型
+    version: silero_vad.onnx (v5, 512 窗口)
+    source: https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx
+    license: MIT
+    usage: 语音活动检测（VAD），本地推理，判断用户是否在说话
+    obligations: 保留版权声明
+    self_modification: 无，仅调用
+    compliance: 已核验
+
