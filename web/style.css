@@ -1,0 +1,52 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #111; }
+
+/* 舞台：铺满整个窗口。布局一律用 vw/vh，目标屏 1280×800 */
+#stage {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 背景层：div 用 background-image 显示，cover = 铺满不留边 */
+#layer-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-color: #2d4a3e;        /* 占位色，接素材后被图片盖住 */
+  background-size: cover;
+  background-position: center;
+}
+
+/* 立绘层与嘴型层：尺寸、位置完全一致。
+   约定嘴型贴图与立绘同画布尺寸、其余透明，叠上去即对齐，无需逐张调偏移 */
+#layer-char, #layer-mouth {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;              /* 保持比例不拉伸 */
+  object-position: center bottom;   /* 贴底，像站在地面上 */
+}
+#layer-char  { z-index: 2; transition: opacity .15s ease; }
+#layer-mouth { z-index: 3; }
+
+/* ===== 占位色块：接入真实素材时删掉这一段 ===== */
+#layer-char  { background: rgba(255, 200, 0, .5); left: 30vw; top: 20vh; width: 40vw; height: 80vh; }
+#layer-mouth { background: rgba(255, 60, 60, .8); left: 46vw; top: 45vh; width: 8vw;  height: 8vh;  }
+/* ===== 占位结束 ===== */
+
+/* 字幕层：底部居中。左右各留 10vw，比 left:50%+translate 写法换行更自然 */
+#layer-subtitle {
+  position: absolute;
+  bottom: 6vh;
+  left: 10vw;
+  right: 10vw;
+  z-index: 4;
+  text-align: center;
+  font-size: 3vh;
+  line-height: 1.5;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, .9);
+}

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Alter-Ego</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- 舞台：四个图层按 z-index 叠放 -->
+  <div id="stage">
+    <div id="layer-bg"></div>          <!-- 第 1 层：背景 -->
+    <!-- img 没有 src 时浏览器不渲染，先放 1 像素透明图占位，由 JS 替换 -->
+    <img id="layer-char"  alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">  <!-- 第 2 层：角色立绘 -->
+    <img id="layer-mouth" alt="" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">  <!-- 第 3 层：嘴部贴图 -->
+    <div id="layer-subtitle"></div>    <!-- 第 4 层：字幕 -->
+  </div>
+  <script src="mock.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
