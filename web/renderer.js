@@ -7,8 +7,8 @@ const PLACEHOLDER = true;    // 素材没到时用色块；素材到了改成 fa
 const DEBUG       = true;    // 左上角显示最近收到的消息，上板前改成 false
 
 const WS_URL     = "ws://127.0.0.1:8000/ws";
-const SPRITE_DIR = "../characters/example/sprites/";
-const BG_DIR     = "../characters/example/backgrounds/";   // 待与队长确认背景放哪个目录
+const SPRITE_DIR = "../characters/example/sprites/";       // 人物素材：六张情绪立绘 + 三张嘴型
+const BG_DIR     = "../characters/example/backgrounds/";   // 背景图
 
 // 与 contracts.py 的 Emotion 保持一致
 const EMOTIONS = ["neutral", "happy", "sad", "surprised", "angry", "shy"];
