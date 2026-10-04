@@ -27,3 +27,24 @@ resources:
     self_modification: 无，仅调用
     compliance: 已核验
 
+  - name: Zipformer 中英双语流式语音识别模型
+    type: 模型
+    version: sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20 (int8 量化)
+    source: https://huggingface.co/csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20
+    license: Apache-2.0（模型权重来源为 icefall/wenet 公开训练，sherpa-onnx 分发）
+    usage: ASR 流式语音识别，本地推理，中文/英文转文字
+    obligations: 保留版权声明
+    self_modification: 无，仅调用（int8 量化已由上游完成）
+    compliance: 已核验
+
+  - name: VITS 中文语音合成模型（AISHELL3 音色）
+    type: 模型
+    version: vits-zh-aishell3 (vits-aishell3.onnx)
+    source: https://huggingface.co/csukuangfj/vits-zh-aishell3
+    license: MIT（AISHELL3 数据集音色为开源，非真人克隆）
+    usage: TTS 语音合成，本地推理，文字转语音
+    obligations: 保留版权声明；仅使用开源通用音色，无真人音色（赛事合规）
+    self_modification: 无，仅调用
+    compliance: 已核验
+
+
