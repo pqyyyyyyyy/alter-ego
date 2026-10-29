@@ -1,0 +1,49 @@
+# LLM 后端配置。换后端只改这里，不改代码。
+#
+# ⚠️ 不要把 API key 写进此文件 —— 它会进 git。
+#    key 一律走环境变量，变量名写在 api_key_env 字段。
+#    赛事规则明确禁止提交 API 密钥等访问凭据。
+
+default: local
+# 通用降级链：按序尝试。板子上网络不稳是常态。
+fallback_chain: [dashscope, deepseek, local]
+
+# 主对话专用降级链。**刻意不含 local。**
+#
+# local 是 llama.cpp 跑 0.5B，它做不了主对话任务（结构化 JSON + 日文敬体
+# + 中文翻译），但调用不会报错 —— 它会返回看起来成功的垃圾，
+# 然后 JSON 解析失败、情绪兜底 neutral、日文变成乱码。
+# 这比干脆失败更糟：失败能走人格卡里的 fallback_reply，垃圾会直接播出去。
+#
+# local 仍然用于口吻改写（中文路径）与情绪分类，那是它能胜任的任务。
+dialog_chain: [dashscope, deepseek]
+
+providers:
+  # 本地 llama.cpp —— 口吻改写模块专用。
+  # 只有本地后端配 completion_url，因为 prefill 必须走 /completion 裸接口，
+  # /v1/chat/completions 无法做 prefill（实测见 docs/实验数据.md）。
+  local:
+    base_url: http://127.0.0.1:8089/v1
+    completion_url: http://127.0.0.1:8089/completion
+    model: qwen2.5-0.5b-instruct-q4_k_m
+    api_key_env: ""
+    timeout: 30
+
+  # 云端主对话模型。国内访问稳定，评审易复现。
+  dashscope:
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    model: qwen-plus
+    api_key_env: DASHSCOPE_API_KEY
+    timeout: 30
+
+  deepseek:
+    base_url: https://api.deepseek.com/v1
+    model: deepseek-chat
+    api_key_env: DEEPSEEK_API_KEY
+    timeout: 30
+
+  zhipu:
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    model: glm-4-flash
+    api_key_env: ZHIPU_API_KEY
+    timeout: 30

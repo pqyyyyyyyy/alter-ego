@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>日语音色素材试听与转写</title>
+<style>
+body{font:16px/1.6 system-ui,sans-serif;background:#f5f4fa;color:#242336;margin:0}
+main{max-width:960px;margin:28px auto;padding:0 20px}
+h1{font-size:26px;margin-bottom:8px}p{color:#57556b}
+.bar{position:sticky;top:0;background:#f5f4fa;padding:16px 0;z-index:1;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,.import{background:#47409b;border:0;color:white;padding:10px 16px;border-radius:8px;cursor:pointer;font:inherit}
+.import{background:#655f78}.import input{display:none}
+article{background:white;border:1px solid #dedbe9;border-radius:12px;padding:18px;margin:14px 0}
+audio{width:100%;margin:10px 0}textarea{box-sizing:border-box;width:100%;min-height:80px;font:18px/1.6 system-ui;padding:10px;border:1px solid #bbb5d2;border-radius:6px}
+.meta{font-size:14px;color:#6d687e}label{display:block;margin-top:8px}input[type=checkbox]{width:18px;height:18px;vertical-align:middle}
+#status{color:#47409b;font-weight:600}.note{color:#7b3c00}#notice{min-height:24px}
+</style>
+<main>
+<h1>日语音色素材试听与转写</h1>
+<p>逐段播放，校对实际听到的日文。自动转写只是初稿，可能漏词或猜错。确认是目标角色、单人对白、无明显音乐/音效且台词准确后勾选保留。听不清或尖叫等片段直接跳过。</p>
+<p class="note">文字仅保存在本机。每次结束请导出进度，防止浏览器缓存丢失；无需上传原始语音。</p>
+<div class="bar">
+<button id="save">导出转写进度</button><button id="export">导出已核对训练清单</button>
+<label class="import">导入进度<input id="import" type="file" accept=".jsonl"></label>
+<span id="status"></span>
+</div>
+<div id="notice" role="status"></div><div id="clips"></div>
+</main>
+<script>
+'use strict';
+const rows=__REVIEW_DATA__;
+const storageKey='alter-ego-voice-review:'+rows.map(r=>r.pcm_sha256).join(',');
+let storageAvailable=true;
+function mergeProgress(row,old){
+  if(!old)return;
+  const edited=old.text_edited===true||old.approved===true||(!('text_edited' in old)&&typeof old.text==='string'&&old.text.trim().length>0);
+  if(edited){row.text=old.text;row.text_edited=true;}
+  row.approved=old.approved===true&&!!row.text.trim();
+}
+try{
+  const saved=JSON.parse(localStorage.getItem(storageKey)||'[]');
+  const byHash=new Map(saved.map(r=>[r.pcm_sha256,r]));
+  for(const row of rows)mergeProgress(row,byHash.get(row.pcm_sha256));
+}catch{storageAvailable=false;}
+const notice=document.getElementById('notice');
+if(!storageAvailable)notice.textContent='此浏览器不支持本页自动保存，请及时导出进度。';
+function persist(){
+  try{localStorage.setItem(storageKey,JSON.stringify(rows));}
+  catch{notice.textContent='自动保存不可用，请点击“导出转写进度”。';}
+  const valid=rows.filter(r=>r.approved&&r.text.trim());
+  document.getElementById('status').textContent=`已核对 ${valid.length}/${rows.length} 段 · ${(valid.reduce((n,r)=>n+r.duration_sec,0)/60).toFixed(1)} 分钟`;
+}
+function render(){
+  document.getElementById('clips').replaceChildren();
+  for(const row of rows){
+    const card=document.createElement('article');
+    const heading=document.createElement('strong');heading.textContent=`${row.id} · ${row.name}`;
+    const meta=document.createElement('div');meta.className='meta';meta.textContent=`${row.duration_sec.toFixed(2)} 秒 · ${row.sample_rate} Hz · 音量 ${row.rms_dbfs} dBFS`;
+    if(row.asr){const draft=document.createElement('div');draft.className='note';draft.textContent='自动转写，待人工核对'+(row.asr.warnings.length?' · '+row.asr.warnings.join('、'):'');meta.append(draft);}
+    const audio=document.createElement('audio');audio.controls=true;audio.preload='none';audio.src=row.audio;
+    audio.addEventListener('play',()=>document.querySelectorAll('audio').forEach(other=>{if(other!==audio)other.pause();}));
+    const label=document.createElement('label');label.textContent='实际日文台词';
+    const text=document.createElement('textarea');text.value=row.text;text.placeholder='例：今日は一緒にゲームしよう。';text.setAttribute('aria-label',`${row.id} 日文台词`);
+    text.addEventListener('input',()=>{row.text=text.value;row.text_edited=true;row.approved=false;check.checked=false;persist();});
+    const keep=document.createElement('label');const check=document.createElement('input');check.type='checkbox';check.checked=row.approved;
+    check.addEventListener('change',()=>{row.approved=check.checked;persist();});
+    keep.append(check,document.createTextNode(' 保留：角色正确、干净单人对白、日文台词已核对'));
+    card.append(heading,meta,audio,label,text,keep);document.getElementById('clips').append(card);
+  }
+  persist();
+}
+function download(name,text){
+  const url=URL.createObjectURL(new Blob([text],{type:'text/plain;charset=utf-8'}));
+  const link=document.createElement('a');link.href=url;link.download=name;link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+document.getElementById('save').onclick=()=>download('nanami-review.jsonl',rows.map(r=>JSON.stringify(r)).join('\n')+'\n');
+document.getElementById('export').onclick=()=>{
+  const checked=rows.filter(r=>r.approved);
+  if(!checked.length){notice.textContent='请先试听、填写台词并勾选至少一段。';return;}
+  if(checked.some(r=>!r.text.trim()||/[|\r\n]/.test(r.text)||/[|\r\n]/.test(r.training_path))){notice.textContent='已勾选片段的台词不能为空，也不能含换行或竖线。请先修改。';return;}
+  download('nanami-ja.list',checked.map(r=>`${r.training_path}|nanami|JA|${r.text.trim()}`).join('\n')+'\n');
+  notice.textContent=`已导出 ${checked.length} 段；请把清单保存到当前 review.html 所在目录。`;
+};
+document.getElementById('import').onchange=async event=>{
+  try{
+    const file=event.target.files[0];if(!file)return;
+    const imported=(await file.text()).split(/\r?\n/).filter(line=>line.trim()).map(line=>JSON.parse(line));
+    const byHash=new Map(imported.map(r=>[r.pcm_sha256,r]));let matched=0;
+    for(const row of rows){const old=byHash.get(row.pcm_sha256);if(old){mergeProgress(row,old);matched++;}}
+    render();notice.textContent=`已导入 ${matched} 段进度。`;
+  }catch{notice.textContent='无法读取进度文件，请选择本工具导出的 JSONL。';}
+};
+render();
+</script>
+</html>

@@ -2,42 +2,71 @@
 
 改动此文件必须三人同步 —— 它是并行开发的唯一共享依赖。
 
-分工：
-  perception/ voice/   → w
-  web/                 → z
-  persona/ llm/ server/ scheduler/ → 队长
+分工（2026-10-03 调整）：
+  perception/ persona/ llm/ server/ scheduler/  → 队长
+  voice/                                        → z
+  web/                                          → w
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterator, Literal, Protocol
+from typing import TYPE_CHECKING, Iterator, Literal, Protocol
 
-import numpy as np
+# numpy 只在类型注解里出现，而本文件有 `from __future__ import annotations`，
+# 注解会被延迟求值成字符串，运行时不解析。放进 TYPE_CHECKING 后：
+#   · 人格层（只读 YAML）、语音层（只用 sherpa-onnx）不必安装 numpy
+#   · 类型检查器（mypy/pyright）照常能校验
+# 感知层实际用到 ndarray 时自行 import numpy 即可。
+if TYPE_CHECKING:
+    import numpy as np
 
 # ======================== 全局枚举 ========================
 # 前后端共用，前端按 Emotion 取立绘文件名
 
 State = Literal["IDLE", "NOTICED", "DIALOG", "SPEAKING"]
-Emotion = Literal["neutral", "happy", "sad", "surprised", "angry", "shy"]
+
+# 情绪枚举（2026-10-05 按实际立绘素材重定）。
+#
+# **枚举由素材与人设共同决定，不是拍一组通用情绪就完事。** 两处改动：
+#   · 去掉 `angry` —— 七海是慵懒温柔的观察者，人设里不发怒，素材里也没有。
+#     留着的后果是云端判出 angry 后演出不符合人设的表现。换成 `unhappy`（不悦）。
+#   · 去掉 `sad` —— 这套素材里没有哭/失落的立绘，强行拿别的顶会名不副实。
+#   · 加入 `assertive` —— 主张/强调。学级裁判里的七海是会据理力争的，
+#     而且素材有两级强度（指/推手掌）。
+#
+# 数量仍是 6。这是刻意的上限：情绪由**云端模型从枚举里挑**，
+# 选项越多挑得越噪（实测 Sarashina-1B 在 6 项上已有 58% 的误判倒向 neutral）。
+# 立绘的丰富度靠「一个情绪映射多张候选图、本地轮换」实现，不靠扩枚举。
+Emotion = Literal[
+    "neutral", "happy", "surprised", "shy", "unhappy", "assertive",
+]
 
 EMOTIONS: tuple[str, ...] = (
-    "neutral", "happy", "sad", "surprised", "angry", "shy",
+    "neutral", "happy", "surprised", "shy", "unhappy", "assertive",
 )
 
 EMBEDDING_DIM = 512          # 人脸特征维度，ArcFace 系列固定 512
 AUDIO_SAMPLE_RATE = 16000    # ASR 输入采样率，不可改
+WS_PROTOCOL_VERSION = "aeg-ws-v2"
 
 
-# ======================== 感知层（w 实现）========================
+# ======================== 感知层（队长实现）========================
 
 @dataclass
 class FaceBox:
-    """人脸检测框，像素坐标。"""
+    """人脸检测框，像素坐标。
+
+    `kps` 是 5 点关键点（左眼、右眼、鼻尖、左嘴角、右嘴角），shape (5, 2) float32。
+    它不是可选的装饰 —— ArcFace 系列必须靠这 5 点做仿射对齐才能提特征，
+    只有框没有关键点就提不了特征。留 None 默认值是为了让纯检测降级方案
+    （只判断有人/没人）不必伪造数据。
+    """
     x1: int
     y1: int
     x2: int
     y2: int
     score: float
+    kps: np.ndarray | None = None
 
 
 @dataclass
@@ -62,8 +91,9 @@ class PerceptionBackend(Protocol):
         """提取人脸特征。
 
         返回 shape (512,) 的 float32，已做 L2 归一化。
-        实现内部必须先用 5 点关键点做仿射对齐再送入模型 ——
-        漏掉对齐不会报错，但识别率会崩塌。
+        实现内部必须先用 `box.kps` 做仿射对齐再送入模型 ——
+        漏掉对齐不会报错，但识别率会崩塌（实测同一人相似度从 0.6 掉到 0.2）。
+        `box.kps` 为 None 时应抛异常，不要静默返回一个错的向量。
         """
         ...
 
@@ -87,7 +117,7 @@ class IdentityStore(Protocol):
         ...
 
 
-# ======================== 语音层（w 实现）========================
+# ======================== 语音层（z 实现）========================
 
 class ASREngine(Protocol):
     """流式语音识别。"""
@@ -111,6 +141,17 @@ class TTSEngine(Protocol):
         ...
 
 
+class AsyncWavTTS(Protocol):
+    async def synthesize_wav(self, text: str) -> bytes:
+        """Complete only when the underlying request has actually finished."""
+        ...
+
+
+class AsyncMP3TTS(Protocol):
+    async def synthesize_mp3(self, text: str) -> bytes:
+        ...
+
+
 # ======================== 人格层（队长实现）========================
 
 @dataclass
@@ -125,6 +166,36 @@ class PersonaContext:
 class RewriteResult:
     text: str
     emotion: Emotion
+
+
+@dataclass
+class CloudReply:
+    """云端主对话模型的结构化输出。
+
+    **`ja` 必须是敬体（です・ます）。** 规则引擎是敬体→常体的形态变换器，
+    给它常体或中文都会静默失败 —— 门禁正则一条不命中，但末尾仍会拼上
+    日文终助词，产出「今天天气不错ね。」这类垃圾且不报错。
+    """
+    ja: str                      # 日文敬体，喂给规则引擎
+    zh: str = ""                 # 中文字幕，是 ja 的翻译（保证语义严格对应）
+    emotion: Emotion = "neutral"
+    raw: str = ""                # 原始响应，解析失败时留作诊断
+
+
+@dataclass
+class DialogTurn:
+    """一轮完整对话的产出。
+
+    字幕不放进 RewriteResult —— 那是改写器的输出，而改写器只做日文形态变换，
+    字幕来自云端。混在一起会让职责模糊。
+    """
+    user_text: str               # ASR 识别的中文
+    speak_ja: str                # 规则引擎改写后的日文（常体 + 角色语尾），送 TTS
+    subtitle_zh: str = ""        # 中文字幕
+    emotion: Emotion = "neutral"
+    cloud_sec: float = 0.0       # 云端耗时，诊断用
+    rewrite_sec: float = 0.0
+    error: str = ""              # 非空表示走了降级路径。容错必须配可观测性
 
 
 class PersonaRewriter(Protocol):

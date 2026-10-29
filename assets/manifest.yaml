@@ -7,6 +7,38 @@
 # 用一个就登记一个，不要事后补。
 
 resources:
+  - name: faster-whisper
+    type: 本地语音转写运行库
+    version: "1.2.1（独立 voice-labeling 环境）"
+    source: https://github.com/SYSTRAN/faster-whisper
+    license: MIT（已读取安装包 LICENSE）；依赖声明交付前另行核验
+    usage: 本机生成私有日语音频台词初稿，不上传音频
+    obligations: 交付前核验并保留适用的版权与许可声明
+    self_modification: 自研断点续跑、人工进度保护与试听校对页面
+    compliance: 库已安装，真实音频转写可运行；自动结果需人工校对
+
+  - name: Whisper small (CTranslate2)
+    type: 预训练多语种 ASR 权重
+    version: "536b0662742c02347bc0e980a01041f333bce120；权重哈希见 asr-drafts.jsonl"
+    source: https://huggingface.co/Systran/faster-whisper-small
+    license: 模型卡标注 MIT；原始模型和第三方声明待完整核验
+    usage: 日语台词初稿，CPU int8 推理；权重只下载到 models/
+    obligations: 保留适用许可；权重和私有台词不入代码仓库
+    self_modification: 无（仅做本地推理封装）
+    compliance: 已读取转换模型卡，权重已下载，真实日语转写已运行；准确性待人工校对
+
+  - name: GPT-SoVITS
+    type: 外部语音训练与推理代码库
+    version: a3035089c65ca63eb7777a4b0dafd198ebe36cda
+    source: https://github.com/RVC-Boss/GPT-SoVITS
+    license: MIT（已读取该提交的 LICENSE）；预训练权重须另行核验
+    usage: |
+      已下载到项目工作区 tools/GPT-SoVITS，核对日语标注格式和训练要求。
+      拟在 Windows 电脑使用 v2 做日语音色小规模微调；尚未训练或加载权重。
+    obligations: 保留代码版权与 MIT 许可；底模、训练音频授权分别核验
+    self_modification: 尚未修改第三方代码；自研本地素材清点与人工转写工具
+    compliance: 代码许可已核验；权重与游戏音频使用条款尚待确认
+
   - name: Apache License 2.0
     type: 许可证
     version: "2.0"
@@ -14,5 +46,102 @@ resources:
     license: Apache-2.0
     usage: 本项目代码的开源许可
     obligations: 保留版权声明与 NOTICE，变更需注明
+    self_modification: 无
+    compliance: 已核验
+
+  # ======================== 中文语音输入 ========================
+
+  - name: sherpa-onnx
+    type: 语音推理运行库
+    version: "1.13.8（板端已安装并验证导入）"
+    source: https://github.com/k2-fsa/sherpa-onnx
+    license: 待核验该版本的 LICENSE 与第三方依赖声明
+    usage: CPU 上运行 SenseVoice 整句中文识别，不上传原始录音
+    obligations: 交付前核验并保留适用的许可声明
+    self_modification: 自研 PCM 输入封装、句间缓冲隔离与板端录音测试脚本
+    compliance: 运行库导入已验证；许可声明待核验
+
+  - name: SenseVoice 多语种 int8 模型
+    type: 预训练 ASR 模型权重与 tokens
+    version: sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17
+    source: https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17.tar.bz2
+    license: 待核验具体模型包的许可与模型卡
+    usage: 计划用于 16kHz 单声道中文整句识别；板端模型尚待确认
+    obligations: 模型不入代码仓库；下载和交付时核验权重适用条款
+    self_modification: 无（仅做输入封装与 CPU 线程数限制）
+    compliance: 尚未验证板端真实识别；模型包条款待核验
+
+  # ======================== 感知链路 ========================
+
+  - name: InsightFace
+    type: 代码库（Python 包）
+    version: "2.1"
+    source: https://github.com/deepinsight/insightface
+    license: MIT
+    usage: |
+      用其 SCRFD 检测后处理与 ArcFace 5 点仿射对齐实现。
+      封装在 src/alter_ego/perception/backends/insightface_backend.py，
+      只取 detection 与 recognition 两个子模型，不用其高层 FaceAnalysis.get()。
+    obligations: 保留 MIT 版权声明
+    self_modification: |
+      自研部分：PerceptionBackend 接口抽象（为昇腾后端热替换预留）、
+      在场判定滞回、身份多帧投票、档案库与隐私策略。
+      这些都不是 insightface 提供的能力。
+    compliance: 已核验（2026-10-04 查 insightface-2.1.dist-info/METADATA 原文）
+    note: |
+      许可分两层，不要混为一谈：
+        · **库代码** MIT，原文「for academic and commercial use」，可商用
+        · **预训练模型** 原文「for non-commercial research only」，
+          whether downloaded automatically or manually
+      本项目为开源竞赛作品，非商业用途，符合模型条件。
+      若后续转商业，要换的是模型权重而不是这个库。
+
+      另核实了联网行为（我们声明「数据不出设备」，这条必须查实而非假定）：
+      insightface/__init__.py 第 10 行主动设 `ORT_DISABLE_TELEMETRY=1`，
+      即它反而替我们关掉了 ONNX Runtime 的遥测。全库唯一的出网行为是
+      首次使用时下载模型包，以及我们没用到的 GUI / addons 模块。
+      → 板子上应提前把 ~/.insightface/models/buffalo_s/ 放好，
+        让运行期完全离线。
+
+  - name: SCRFD det_500m
+    type: 预训练模型权重
+    version: buffalo_s 包内（2.5 MB，ONNX）
+    source: https://github.com/deepinsight/insightface/releases/download/model-zoo/buffalo_s.zip
+    license: 随 InsightFace，非商业研究用途
+    usage: 人脸检测，输出人脸框与 5 点关键点
+    obligations: 非商业使用；不再分发权重（已 gitignore，用户自行下载）
+    self_modification: 无（仅做接口封装与 ORT 线程数限制）
+    compliance: 已核验
+    note: |
+      选 buffalo_s 而非默认 buffalo_l（326 MB）—— 板子 4 核，
+      大模型的精度收益换不回延迟。两个模型合计仅 16 MB。
+
+  - name: ArcFace w600k_mbf
+    type: 预训练模型权重
+    version: buffalo_s 包内（13.6 MB，ONNX）
+    source: https://github.com/deepinsight/insightface/releases/download/model-zoo/buffalo_s.zip
+    license: 随 InsightFace，非商业研究用途
+    usage: 人脸特征提取，输出 512 维向量
+    obligations: 非商业使用；不再分发权重
+    self_modification: 无
+    compliance: 已核验
+
+  - name: ONNX Runtime
+    type: 推理运行时
+    version: ">=1.16"
+    source: https://github.com/microsoft/onnxruntime
+    license: MIT
+    usage: PC 阶段跑感知模型（CPUExecutionProvider）。上板后改走昇腾 CANN
+    obligations: 保留 MIT 版权声明
+    self_modification: 无
+    compliance: 已核验
+
+  - name: OpenCV (opencv-python)
+    type: 代码库
+    version: ">=4.8"
+    source: https://github.com/opencv/opencv-python
+    license: Apache-2.0
+    usage: 摄像头采集、图像解码、仿射变换
+    obligations: 保留版权声明与 NOTICE
     self_modification: 无
     compliance: 已核验

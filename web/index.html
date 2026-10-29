@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Alter-Ego</title>
+    <link rel="stylesheet" href="/static/style.css?v=20261011-voice-v1">
+  </head>
+  <body>
+    <main id="app">
+      <section id="stage" aria-label="角色舞台">
+        <div id="layer-bg"></div>
+        <img id="layer-char" alt="角色立绘">
+        <div id="speech-bubble" aria-live="polite"></div>
+        <div id="layer-subtitle" aria-live="polite"></div>
+      </section>
+
+      <aside id="hud">
+        <div class="brand">ALTER-EGO <span class="brand-character">七海千秋</span></div>
+        <div class="status-row">
+        <div id="connection" class="offline">连接中…</div>
+        <div id="state">IDLE</div>
+        </div>
+        <form id="chat-form">
+          <input id="chat-input" name="text" autocomplete="off"
+                 placeholder="说点什么…" aria-label="对话内容">
+          <button type="submit">发送</button>
+        </form>
+        <div class="voice-controls">
+        <button id="record-toggle" class="voice-button" type="button"
+                aria-pressed="false" aria-describedby="voice-status">开始录音</button>
+        <button id="record-cancel" class="voice-cancel" type="button"
+                aria-describedby="voice-status" hidden>终止录音</button>
+        </div>
+        <div id="voice-status" class="voice-status" role="status" aria-live="polite">
+          点击录音，停顿后显示文字；再按一次停止并发送
+        </div>
+        <div class="utility-controls">
+          <button id="log-toggle" class="secondary-button" type="button"
+                  aria-expanded="false" aria-controls="dialog-log">对话日志</button>
+        </div>
+        <div id="perception-status" class="perception-status" role="status" aria-live="polite" aria-atomic="true">
+          识别到 0 人 用户：[空]
+        </div>
+        <div id="camera-feedback" class="camera-feedback" role="status" aria-live="polite"></div>
+        <div class="module-switches">
+          <button id="camera-toggle" class="module-switch" type="button" role="switch" disabled
+                  aria-checked="false" aria-label="摄像头" aria-describedby="perception-status camera-feedback">
+            <span>摄像头</span><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span id="camera-switch-state" class="switch-state" aria-hidden="true">OFF</span>
+          </button>
+          <button id="tts-toggle" class="module-switch" type="button" role="switch" disabled
+                  aria-checked="false" aria-label="语音输出" aria-describedby="tts-feedback">
+            <span>语音</span><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+            <span id="tts-switch-state" class="switch-state" aria-hidden="true">OFF</span>
+          </button>
+        </div>
+        <div class="tts-modes" role="group" aria-label="语音回复模式">
+          <button id="tts-fast" type="button" class="mode-button" aria-pressed="true">快答模式</button>
+          <button id="tts-sync" type="button" class="mode-button" aria-pressed="false">同步模式</button>
+        </div>
+        <p id="tts-mode-help" class="tts-mode-help">先显示文字，语音生成后自动播放</p>
+        <div id="tts-feedback" class="camera-feedback" role="status" aria-live="polite"></div>
+        <button id="replay-audio" type="button" title="播放语音" aria-label="播放语音" hidden>▶</button>
+      </aside>
+
+      <section id="dialog-log" class="dialog-log" aria-labelledby="dialog-log-title" hidden>
+        <div class="dialog-log-header">
+          <h2 id="dialog-log-title">对话日志</h2>
+          <button id="log-clear" class="icon-button" type="button" title="清空对话日志"
+                  aria-label="清空对话日志">清空</button>
+        </div>
+        <div id="dialog-log-list" class="dialog-log-list" role="log" aria-live="polite"
+             aria-relevant="additions"></div>
+        <p class="log-audio-help">最近十条语音可点击七海的回复重听；刷新网页后清除</p>
+        <p id="dialog-log-empty" class="dialog-log-empty">暂无对话记录</p>
+      </section>
+      <div id="tts-warmup" class="tts-warmup" role="status" aria-live="polite" hidden></div>
+    </main>
+    <script src="/static/renderer.js?v=20261011-voice-v1"></script>
+  </body>
+</html>

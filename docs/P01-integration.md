@@ -1,0 +1,3 @@
+# P01 接入建议（不修改共享入口）
+P13为所有chat/say/VAD提供同一个Coordinator实例，先reserve再执行整个模型链；busy返回明确拒绝。job中同步云端/ASR/TTS用to_thread，必须await真正完成，不自行启动失控子任务。run返回playback后发送v1 speak。每个WebSocket绑定服务端client_id，唯一owner；ACK的client参数来自连接，不从自报JSON取。定时调用expire；断连disconnect，LEFT调用leave。失败/no_client/discarded不发送旧字幕。budget决定重特征提取，存在检测按presence_fps继续。
+没有集成前原app仍无仲裁，本任务不声称服务已修复。baseline只关闭资源策略，不关闭半双工/单轮安全。模型驱动违反await约定或同步调用永不返回时保持隔离，需底层进程监督/人工重启；不是假装可杀线程。

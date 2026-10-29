@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Alter-Ego fixture event v1",
+  "type": "object",
+  "required": [
+    "schema",
+    "device_id",
+    "clock_id",
+    "turn_id",
+    "event",
+    "mono_s",
+    "data"
+  ],
+  "properties": {
+    "schema": {
+      "const": "aeg-events-v1"
+    },
+    "device_id": {
+      "type": "string"
+    },
+    "clock_id": {
+      "type": "string"
+    },
+    "turn_id": {
+      "type": "string"
+    },
+    "speech_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "event": {
+      "type": "string"
+    },
+    "mono_s": {
+      "type": "number"
+    },
+    "wall_time": {
+      "type": "string"
+    },
+    "data": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

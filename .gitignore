@@ -1,9 +1,22 @@
 # ============ 私有素材与敏感数据护栏（最高优先，勿删）============
 assets/private/
-characters/*/sprites/
-characters/*/voice/
+
+# 角色包：默认全部排除，只放行公开示例角色。
+# 人格卡与语料也是 IP 衍生内容，不只是立绘需要拦。
+characters/*
+!characters/example/
+characters/example/sprites/
+characters/example/voice/
 models/
-data/users/
+
+# data/ 整个排除，不逐个列。这里会出现：
+#   data/users/          人脸特征向量与姓名
+#   data/aligned_check/  注册时存的对齐人脸图（肉眼验证对齐用）
+#   data/faces/          阈值测试用的人脸照片
+# 前一版只写了 data/users/，而对齐图是 .png、人脸照片是 .jpg，
+# 两者都不在下面的后缀排除里 —— 会被提交。
+# 教训同 characters/*：护栏要按目录整体排除，不要逐个列举已知情况。
+data/
 
 *.pth
 *.ckpt
@@ -52,3 +65,8 @@ Thumbs.db
 # ============ 其他 ============
 *.log
 tmp/
+.tmp_*.js
+testing picture.jpg
+
+# 私有人物与本机联调文档，不进入公开仓库
+docs/nanami-tts-deployment.md

@@ -1,16 +1,41 @@
-# 核心
-numpy>=1.24,<2.0
+# 依赖按分工分区。注释里的人名是负责人（2026-10-03 调整后）。
+
+# ============ 核心 ============
+# numpy 的上界已解除。原先钉 <2.0，但 insightface 2.1 要求 numpy>=2，
+# 两者不可同时满足。
+# ⚠️ 对 z：如果 sherpa-onnx 在 numpy 2.x 下装不上或 import 报
+#    "compiled against API version 0x10 but this version of numpy is 0x..."，
+#    说明它还没适配 numpy 2。那时**不要**自己降级 numpy —— 会把感知链路弄坏。
+#    改用两个虚拟环境，或在群里说一声一起定版本。
+numpy>=1.24
 pyyaml>=6.0
 requests>=2.31
 
-# 感知（w）
+# ============ 感知（队长）============
 opencv-python>=4.8
 onnxruntime>=1.16
+# SCRFD 检测后处理 + ArcFace 5 点仿射对齐。
+# 许可分两层：库代码 MIT 可商用，预训练模型仅限非商业研究。详见 assets/manifest.yaml。
+# 模型不入库（已 gitignore），首次运行自动下到 ~/.insightface/models/。
+# 板子上要提前拷过去，让运行期完全离线。
+insightface>=2.1
+# insightface 的间接依赖（scikit-image / scipy / onnx / pillow）由 pip 自动拉，
+# 不在这里重复钉版本。
 
-# 语音（w）
+# ============ 语音（z）============
 sherpa-onnx>=1.10
+# 演示阶段的在线日语声线；只在 ALTER_EGO_TTS=edge 时加载。
+edge-tts>=7,<8
 
-# 后端（队长）
+# ============ 后端（队长）============
 fastapi>=0.110
 uvicorn[standard]>=0.27
 websockets>=12.0
+
+# ============ 人格层（队长）============
+# 纯 Python 日语分词器，无 C 扩展，aarch64 可直接 pip 装。
+# 用来取动词基本形，是 ます形还原的关键。
+janome>=0.5
+
+# ============ 开发 ============
+pytest>=8.0
