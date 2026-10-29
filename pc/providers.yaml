@@ -1,5 +1,5 @@
 default: dashscope
-dialog_chain: [dashscope]
+dialog_chain: [dashscope, deepseek, zhipu, openai]
 
 providers:
   local:

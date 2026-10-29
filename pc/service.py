@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from alter_ego.contracts import EMOTIONS, RewriteResult
 from alter_ego.dialog import DialogOrchestrator
-from alter_ego.llm.providers import ProviderRegistry
+from alter_ego.llm.providers import ProviderChainError, ProviderRegistry
 from alter_ego.persona.card import PersonaCard
 from alter_ego.persona.examples import ExamplePool
 from alter_ego.persona.rewriter import LocalRewriter
@@ -36,17 +36,28 @@ class PassThroughRewriter:
 
 
 class SelectedRegistry:
-    def __init__(self, registry: ProviderRegistry, provider_name: str):
+    def __init__(self, registry: ProviderRegistry, provider_names: list[str]):
         self.registry = registry
-        self.provider_name = provider_name
+        self.provider_names = provider_names
+        self.active_name = ""
 
     def chat_with_fallback(self, messages, **kwargs):
-        if self.provider_name == "openai":
-            kwargs.pop("temperature", None)
-            kwargs["reasoning_effort"] = "none"
-        return self.registry.chat_with_fallback(
-            messages, chain=[self.provider_name], **kwargs
-        )
+        errors = []
+        for name in self.provider_names:
+            options = kwargs.copy()
+            if name == "openai":
+                options.pop("temperature", None)
+                options["reasoning_effort"] = "none"
+            try:
+                reply, note = self.registry.chat_with_fallback(
+                    messages, chain=[name], **options
+                )
+            except ProviderChainError as exc:
+                errors.append(f"{name}: {str(exc)}")
+                continue
+            self.active_name = name
+            return reply, "; ".join(part for part in (*errors, note) if part)
+        raise ProviderChainError("; ".join(errors))
 
 
 class PcRuntime:
@@ -59,17 +70,23 @@ class PcRuntime:
         self.lock = asyncio.Lock()
 
         if registry is None:
-            provider = self.registry.get(provider_name)
-            key_env = provider.cfg.api_key_env
-            self.missing_key = bool(key_env and not os.environ.get(key_env))
-            self.key_env = key_env
-            self.model = provider.cfg.model
-            selected_registry = SelectedRegistry(self.registry, provider_name)
+            candidates = (self.registry.dialog_chain if provider_name == "auto"
+                          else [provider_name])
+            self.provider_names = [name for name in candidates
+                                   if os.environ.get(self.registry.get(name).cfg.api_key_env)]
+            self.missing_key = not self.provider_names
+            self.key_env = ", ".join(self.registry.get(name).cfg.api_key_env
+                                     for name in (self.provider_names or candidates))
+            self.model = ", ".join(self.registry.get(name).cfg.model
+                                   for name in self.provider_names)
+            selected_registry = SelectedRegistry(self.registry, self.provider_names)
         else:
+            self.provider_names = []
             self.missing_key = False
             self.key_env = ""
             self.model = ""
             selected_registry = registry
+        self.selected_registry = selected_registry
 
         examples_path = self.character_dir / "examples.jsonl"
         pool = ExamplePool.load(examples_path) if examples_path.exists() else ExamplePool([])
@@ -101,7 +118,7 @@ class PcRuntime:
         return f"/api/sprite/{emotion}" if self.sprite(emotion) else None
 
 
-def create_app(character_dir: Path | None = None, provider_name: str = "dashscope",
+def create_app(character_dir: Path | None = None, provider_name: str = "auto",
                local_rewrite: bool = False, registry=None) -> FastAPI:
     runtime = PcRuntime(character_dir or ROOT / "characters" / "example",
                         provider_name, local_rewrite, registry)
@@ -122,10 +139,11 @@ def create_app(character_dir: Path | None = None, provider_name: str = "dashscop
         return {
             "character": runtime.card.name,
             "language": runtime.card.language,
-            "provider": runtime.provider_name,
+            "provider": ", ".join(runtime.provider_names) or runtime.provider_name,
             "model": runtime.model,
             "ready": not runtime.missing_key,
-            "issue": f"请设置 {runtime.key_env} 后重启服务。" if runtime.missing_key else "",
+            "issue": f"请设置以下任一平台的 API Key 后重启服务：{runtime.key_env}。"
+                     if runtime.missing_key else "",
             "local_rewrite": runtime.local_rewrite or runtime.card.language == "ja",
             "sprite_url": runtime.sprite_url("neutral"),
         }
@@ -151,7 +169,7 @@ def create_app(character_dir: Path | None = None, provider_name: str = "dashscop
                 error = result.error
                 if "HTTP401" in error:
                     key_name = runtime.key_env or "对应的 API 密钥"
-                    detail = f"{runtime.provider_name} 鉴权失败，请检查 {key_name}。"
+                    detail = f"鉴权失败，请检查当前平台的 {key_name}。"
                 elif "HTTP402" in error:
                     detail = "对话服务余额不足。"
                 elif "HTTP403" in error:
@@ -169,6 +187,9 @@ def create_app(character_dir: Path | None = None, provider_name: str = "dashscop
                 "emotion": result.emotion,
                 "sprite_url": runtime.sprite_url(result.emotion),
                 "history_turns": runtime.dialog.history_turns,
+                "provider": getattr(runtime.selected_registry, "active_name", ""),
+                "model": (runtime.registry.get(runtime.selected_registry.active_name).cfg.model
+                          if getattr(runtime.selected_registry, "active_name", "") else ""),
                 "rewrite_note": "本地改写不可用，已显示原文。"
                 if result.error.startswith("改写:") else "",
             }

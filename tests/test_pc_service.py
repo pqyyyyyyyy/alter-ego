@@ -9,6 +9,7 @@ import urllib.request
 from contextlib import contextmanager
 
 import pytest
+import requests
 import uvicorn
 
 from alter_ego.llm.providers import ProviderChainError
@@ -82,7 +83,9 @@ def test_pc_real_reply_and_provider_failure_do_not_look_alike():
 
 
 def test_pc_missing_key_does_not_call_cloud(monkeypatch):
-    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    for key in ("DASHSCOPE_API_KEY", "DEEPSEEK_API_KEY", "ZHIPU_API_KEY",
+                "OPENAI_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
     app = create_app()
     with running(app) as base:
         _, status = request(base, "/api/status")
@@ -147,3 +150,70 @@ def test_pc_routes_selected_provider_with_its_own_key(
     if provider == "openai":
         assert calls[0][1]["json"]["reasoning_effort"] == "none"
         assert "temperature" not in calls[0][1]["json"]
+
+
+def test_pc_auto_uses_only_configured_key(monkeypatch):
+    for key in ("DASHSCOPE_API_KEY", "ZHIPU_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test-key")
+    app = create_app()
+    calls = []
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": json.dumps({
+                "text": "你好", "emotion": "neutral"})}}]}
+
+    def fake_post(url, **kwargs):
+        calls.append((url, kwargs))
+        return Response()
+
+    app.state.runtime.registry.get("deepseek")._session.post = fake_post
+    with running(app) as base:
+        _, status = request(base, "/api/status")
+        assert status["provider"] == "deepseek"
+        assert status["model"] == "deepseek-flash"
+        _, answer = request(base, "/api/chat", {"text": "你好"})
+        assert answer["provider"] == "deepseek"
+    assert len(calls) == 1
+    assert calls[0][1]["headers"]["Authorization"] == "Bearer deepseek-test-key"
+
+
+def test_pc_auto_falls_back_to_next_key(monkeypatch):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "invalid-test-key")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test-key")
+    for key in ("ZHIPU_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    app = create_app()
+    calls = []
+
+    def fail_auth(url, **kwargs):
+        calls.append("dashscope")
+        response = requests.Response()
+        response.status_code = 401
+        raise requests.HTTPError(response=response)
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": json.dumps({
+                "text": "备用平台回复", "emotion": "neutral"})}}]}
+
+    def succeed(url, **kwargs):
+        calls.append("deepseek")
+        return Response()
+
+    app.state.runtime.registry.get("dashscope")._session.post = fail_auth
+    app.state.runtime.registry.get("deepseek")._session.post = succeed
+    with running(app) as base:
+        _, status = request(base, "/api/status")
+        assert status["provider"] == "dashscope, deepseek"
+        _, answer = request(base, "/api/chat", {"text": "你好"})
+        assert answer["reply"] == "备用平台回复"
+        assert answer["provider"] == "deepseek"
+    assert calls == ["dashscope", "deepseek"]

@@ -98,7 +98,7 @@ form.addEventListener("submit", async (event) => {
     }));
     addMessage(characterName, data.reply, data.subtitle);
     showPortrait(data.sprite_url);
-    showStatus(data.rewrite_note || "对话已连接");
+    showStatus(data.rewrite_note || `已连接 ${data.provider} / ${data.model}`);
   } catch (error) {
     showStatus(error.message, true);
   } finally {

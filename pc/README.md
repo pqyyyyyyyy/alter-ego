@@ -13,9 +13,9 @@ $env:DASHSCOPE_API_KEY = Read-Host 'DashScope API Key'
 .\.venv\Scripts\python.exe scripts/run_pc.py
 ```
 
-打开 `http://127.0.0.1:8765/`，输入消息后会调用 DashScope。关闭时在运行服务的终端按 `Ctrl+C`。端口已被使用时，追加 `--port 8766`，浏览器也改用对应端口。密钥只保存在当前 PowerShell 进程的环境变量中，不能写进 `providers.yaml` 或提交到 GitHub。调用云端服务可能产生费用。
+打开 `http://127.0.0.1:8765/`。默认自动查找已设置密钥的平台，按 DashScope、DeepSeek、智谱、OpenAI 的顺序尝试；上面的示例只设置了 DashScope。关闭时在运行服务的终端按 `Ctrl+C`。端口已被使用时，追加 `--port 8766`，浏览器也改用对应端口。密钥只保存在当前 PowerShell 进程的环境变量中，不能写进 `providers.yaml` 或提交到 GitHub。调用云端服务可能产生费用。
 
-页面显示“请设置 DASHSCOPE_API_KEY”表示当前终端没有密钥；发送消息后提示鉴权失败表示密钥无效或已失效。`GET /api/status` 中的 `ready` 只检查密钥是否已设置，不向云端发送验证请求。连接或模型出错时，页面显示错误，不会把人格卡中的预设回复伪装成真实回答。
+页面提示设置 API Key 表示启动服务的终端没有检测到对应平台的密钥；发送消息后提示鉴权失败表示平台拒绝了当前密钥。`GET /api/status` 中的 `ready` 只检查密钥是否已设置，不向云端发送验证请求。连接或模型出错时，页面显示错误，不会把人格卡中的预设回复伪装成真实回答。
 
 ## 更换角色
 
@@ -32,13 +32,13 @@ Copy-Item characters/example characters/my-character -Recurse
 
 ## 选择对话服务
 
-默认使用 DashScope。其他服务必须同时切换 `--provider` 和相应的环境变量；仅把其他服务的密钥填进 `DASHSCOPE_API_KEY` 会被 DashScope 拒绝。
+启动时不必指定模型，也不必指定平台。每个平台的模型和接口地址在 `pc/providers.yaml` 中配置；API 请求必须带模型名。只设置一个平台的密钥时，会自动使用该平台；设置多个密钥时，会按配置顺序尝试，直到有一个返回有效响应。页面初始状态列出待尝试的平台，回答后显示实际成功的平台。也可通过 `--provider` 只使用一个平台。密钥必须来自对应 API 平台；把 DeepSeek 密钥写入 `DASHSCOPE_API_KEY` 不会生效。
 
 DeepSeek 使用 `pc/providers.yaml` 中的 `deepseek-flash`：
 
 ```powershell
 $env:DEEPSEEK_API_KEY = Read-Host 'DeepSeek API Key'
-.\.venv\Scripts\python.exe scripts/run_pc.py --provider deepseek
+.\.venv\Scripts\python.exe scripts/run_pc.py
 ```
 
 OpenAI API 密钥使用以下命令。ChatGPT 的订阅账号不等于 OpenAI API 密钥或 API 额度：
@@ -55,7 +55,7 @@ $env:ZHIPU_API_KEY = Read-Host 'Zhipu API Key'
 .\.venv\Scripts\python.exe scripts/run_pc.py --provider zhipu
 ```
 
-每次只调用 `--provider` 选定的服务。`GET /api/status` 会显示当前 provider 和模型；出现 401 时先核对它们与密钥来源是否一致。更改环境变量或人格卡后重启 PC 服务。页面“新对话”按钮会清空当前进程中的历史记录，服务重启也会清空。PC 快速入口只供单人本机使用；它将对话文本、人格设定和有限轮次上下文发送给选定的云端服务，不发送立绘或本地图片。
+`GET /api/status` 会显示当前候选平台和模型；出现 401 时先核对密钥来源是否对应这些平台。若多个已设置密钥的平台都失败，页面会显示错误，不会产生模拟回复。更改环境变量或人格卡后重启 PC 服务。页面“新对话”按钮会清空当前进程中的历史记录，服务重启也会清空。PC 快速入口只供单人本机使用；它将对话文本、人格设定和有限轮次上下文发送给选定的云端服务，不发送立绘或本地图片。
 
 ## 本地口吻改写
 

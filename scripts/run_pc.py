@@ -18,8 +18,8 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--character", type=Path, default=ROOT / "characters" / "example")
-    parser.add_argument("--provider", choices=("dashscope", "deepseek", "zhipu", "openai"),
-                        default="dashscope")
+    parser.add_argument("--provider", choices=("auto", "dashscope", "deepseek", "zhipu", "openai"),
+                        default="auto")
     parser.add_argument("--local-rewrite", action="store_true")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
