@@ -6,15 +6,19 @@ Alter-Ego 是一个面向边缘 AI 开发板的端侧虚拟形象交互运行时
 
 ## PC 端快速使用（Windows PowerShell）
 
-需要 Python 3.10 或 3.11、Git 和浏览器。以下命令在 PowerShell 中执行；如果已经克隆仓库，从 `Set-Location alter-ego` 开始。fixture 模式只使用公开代码和内置模拟服务，不需要板卡、摄像头、模型权重、API 密钥或私人角色包。
+需要 Python 3.10 或 3.11、Git 和浏览器。以下命令在 PowerShell 中执行，会将仓库克隆到当前 Windows 用户目录下的 `alter-ego` 文件夹，并打印完整路径。fixture 模式只使用公开代码和内置模拟服务，不需要板卡、摄像头、模型权重、API 密钥或私人角色包。
 
 ```powershell
-git clone https://github.com/pqyyyyyyyy/alter-ego.git
-Set-Location alter-ego
+$projectDir = Join-Path $env:USERPROFILE 'alter-ego'
+git clone https://github.com/pqyyyyyyyy/alter-ego.git $projectDir
+Set-Location -LiteralPath $projectDir
+(Get-Location).Path
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install "fastapi>=0.110" "uvicorn[standard]>=0.27" "websockets>=12.0" "pyyaml>=6.0" "requests>=2.31" "janome>=0.5"
 .\.venv\Scripts\python.exe scripts/run_service.py --fixture --port 8000 --log-dir tmp/pc-run-logs
 ```
+
+仓库已经在电脑上时，跳过 `git clone`，用实际完整路径进入项目目录。如果不知道路径，可在资源管理器中打开包含 `README.md` 的项目文件夹，点击地址栏复制完整路径，再执行 `Set-Location -LiteralPath '复制的路径'`；也可以在该文件夹地址栏输入 `powershell` 并按回车，直接在此处打开终端。通过浏览器下载 ZIP 的用户需要先解压，进入解压后包含 `README.md` 的文件夹。
 
 在浏览器打开 `http://127.0.0.1:8000/`，等状态显示“已连接”后在输入框发送文字。页面会显示模拟角色的日语回复和中文字幕，并播放短提示音；该声音不是语音合成。fixture 没有立绘，舞台上不会出现角色图片，录音预览也是模拟识别。用另一个 PowerShell 窗口检查服务：
 
