@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alter-Ego PC</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <main class="layout">
+    <section class="stage" aria-label="角色形象">
+      <div class="stage-heading">
+        <span class="brand">ALTER-EGO</span>
+        <span class="stage-label">PC</span>
+      </div>
+      <div class="portrait-area">
+        <img id="portrait" class="portrait" alt="" hidden>
+        <div id="portrait-placeholder" class="portrait-placeholder" aria-hidden="true">
+          <span id="portrait-initial">角</span>
+        </div>
+      </div>
+      <div class="stage-footer">
+        <h1 id="character-name">角色</h1>
+        <span id="language" class="language"></span>
+      </div>
+    </section>
+
+    <section class="conversation" aria-label="对话">
+      <header class="conversation-header">
+        <div>
+          <p class="eyebrow">对话</p>
+          <h2 id="conversation-title">角色</h2>
+        </div>
+        <button id="reset" class="reset-button" type="button" title="清空当前对话">新对话</button>
+      </header>
+      <div id="service-status" class="service-status" role="status" aria-live="polite">正在连接</div>
+      <div id="messages" class="messages" role="log" aria-live="polite">
+        <p id="empty" class="empty">暂无对话</p>
+      </div>
+      <form id="chat-form" class="chat-form">
+        <label for="chat-input" class="sr-only">消息</label>
+        <textarea id="chat-input" maxlength="1000" rows="2" placeholder="输入消息" required></textarea>
+        <button id="send" type="submit">发送</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

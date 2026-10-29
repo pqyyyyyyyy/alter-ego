@@ -113,18 +113,6 @@ def test_camera_metadata_synced_on_websocket_join(client, monkeypatch):
         assert client.request('/debug/perception')['identity_scope'].startswith('visible A/B only')
 
 
-def test_fixture_uses_publicly_reproducible_character(client):
-    module = importlib.import_module('alter_ego.server.app')
-    assert module.rt.char_dir is None
-    assert client.health()['character'] == '示例角色'
-    sprites = client.request('/debug/sprites')
-    assert sprites['character'] == '示例角色' and sprites['emotions'] == {}
-    with client.websocket() as (ws, _):
-        assert client.chat('你好')['ok']
-        client.ack(ws, client.receive(ws))
-        client.idle()
-
-
 def test_camera_control_keeps_active_reply_and_off_prevents_idle(client, monkeypatch):
     from alter_ego.server.camera_bridge import CameraMonitor, normalize_snapshot
     module = importlib.import_module('alter_ego.server.app')

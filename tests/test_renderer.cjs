@@ -126,17 +126,6 @@ test("initial sync loads the idle sprite before the first conversation", async (
   assert.equal(r.nodes.get("layer-char").classList.contains("ready"), true);
 });
 
-test("character name comes from the loaded persona manifest", async () => {
-  const r = renderer({fetch: () => Promise.resolve({ok: true, json: async () => ({
-    character: "示例角色", emotions: {}, animations: {},
-  })})});
-  r.send({type: "sync", state: "IDLE", playback_owner: true});
-  await r.settle();
-  assert.equal(r.nodes.get("brand-character").textContent, "示例角色");
-  r.send({type: "speak", speech_id: "fixture", turn_id: "turn", text: "你好"});
-  assert.equal(r.nodes.get("dialog-log-list").children[0].children[1].children[0].textContent, "示例角色");
-});
-
 test("legacy state message also requests an initial sprite", async () => {
   const r = renderer();
   r.send({type: "state", value: "NOTICED"});

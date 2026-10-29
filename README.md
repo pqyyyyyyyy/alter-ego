@@ -4,39 +4,21 @@ Alter-Ego 是一个面向边缘 AI 开发板的端侧虚拟形象交互运行时
 
 项目的目标不是把一个固定角色写死在程序里，而是提供一套可以更换人格卡、语料、声音和形象素材的运行时。角色素材与引擎分离，使用者可以在拥有合法授权的前提下导入自己的角色包。
 
-## PC 端快速使用（Windows PowerShell）
+## PC 快速开始（Windows PowerShell）
 
-需要 Python 3.10 或 3.11、Git 和浏览器。以下命令在 PowerShell 中执行，会将仓库克隆到当前 Windows 用户目录下的 `alter-ego` 文件夹，并打印完整路径。fixture 模式只使用公开代码和内置模拟服务，不需要板卡、摄像头、模型权重、API 密钥或私人角色包。它用于检查页面、对话链路和播放流程，**不生成针对提问的回答**。
+PC 入口与板端服务分开，提供公开示例角色的真实文本对话。需要 Python 3.10/3.11、Git，以及所选对话服务的有效 API 密钥。命令在 PowerShell 中执行：
 
 ```powershell
 $projectDir = Join-Path $env:USERPROFILE 'alter-ego'
 git clone https://github.com/pqyyyyyyyy/alter-ego.git $projectDir
 Set-Location -LiteralPath $projectDir
-(Get-Location).Path
 python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install "fastapi>=0.110" "uvicorn[standard]>=0.27" "websockets>=12.0" "pyyaml>=6.0" "requests>=2.31" "janome>=0.5"
-.\.venv\Scripts\python.exe scripts/run_service.py --fixture --port 8000 --log-dir tmp/pc-run-logs
-```
-
-仓库已经在电脑上时，跳过 `git clone`，用实际完整路径进入项目目录。如果不知道路径，可在资源管理器中打开包含 `README.md` 的项目文件夹，点击地址栏复制完整路径，再执行 `Set-Location -LiteralPath '复制的路径'`；也可以在该文件夹地址栏输入 `powershell` 并按回车，直接在此处打开终端。通过浏览器下载 ZIP 的用户需要先解压，进入解压后包含 `README.md` 的文件夹。
-
-在浏览器打开 `http://127.0.0.1:8000/`，等状态显示“已连接”后在输入框发送文字。**无论输入什么，fixture 都固定回复“见到你很高兴。”**，并播放短提示音；该声音不是语音合成。fixture 没有立绘，舞台上不会出现角色图片，录音预览也是模拟识别。用另一个 PowerShell 窗口检查服务：
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-```
-
-关闭服务时在运行窗口按 `Ctrl+C`。端口被占用时将命令中的 `8000` 改成其他空闲端口，并用相同端口打开网页。`scripts/run_service.py` 会自行设置子进程的 `PYTHONPATH`，按上述命令启动不需要手动设置。更换真实角色、对话、语音和摄像头的步骤见下方[PC 端深入使用](#pc-端深入使用)。
-
-要让角色根据提问回答，先在运行窗口按 `Ctrl+C` 停止 fixture，然后在**项目目录**的新 PowerShell 窗口执行以下命令。此例使用仓库自带的中文示例人格卡和 DashScope 对话服务；将有效的 DashScope API 密钥输入到提示中，密钥不会写进仓库。公开示例没有立绘，页面只显示文字；默认没有语音输出。没有启动本地口吻改写模型时，云端回答仍会显示，但本地中文改写会退回原文。
-
-```powershell
-Set-Location -LiteralPath (Join-Path $env:USERPROFILE 'alter-ego')
+.\.venv\Scripts\python.exe -m pip install -r requirements-pc.txt
 $env:DASHSCOPE_API_KEY = Read-Host 'DashScope API Key'
-.\.venv\Scripts\python.exe scripts/run_service.py --port 8000 --log-dir tmp/pc-real-logs
+.\.venv\Scripts\python.exe scripts/run_pc.py
 ```
 
-如果仓库或虚拟环境建在别处，第一行改成项目的完整路径，第三行改用该虚拟环境中 `python.exe` 的完整路径。云端请求会产生 API 费用。若回答变成固定的预设回复，在新窗口执行 `Invoke-RestMethod http://127.0.0.1:8000/health` 并查看 `last_dialog_error`；其中的 `HTTP401 authentication` 表示 API 鉴权失败，需核对密钥后重启服务。
+在浏览器打开 `http://127.0.0.1:8765/`。已经下载仓库时，跳过 `git clone`，先进入包含 `README.md` 的实际目录再创建虚拟环境。可以在资源管理器打开该目录，在地址栏输入 `powershell` 启动终端。PC 页面没有固定模拟回复；密钥无效或服务不可用时会显示错误。公开示例未包含立绘和语音模型，因此只显示文字和角色占位形象。自定义人格卡、立绘、日语规则和本地改写见 [PC 详细使用](pc/README.md)。
 
 ## 项目要解决的问题
 
@@ -138,6 +120,7 @@ $env:ALTER_EGO_CHARACTER = "C:\path\to\characters\my-character"
 | `src/alter_ego/server/voice_output.py` | 音频输出状态和播放确认管理 |
 | `src/alter_ego/observability.py` | 有界事件记录、耗时和健康状态 |
 | `web/` | 浏览器端状态渲染、字幕、音频播放和立绘动画 |
+| `pc/` | 独立 PC 文本对话页面与服务，不修改板端 WebSocket 链路 |
 | `scripts/` | 语音、感知、阈值、服务启动和数据准备工具 |
 | `tests/` | 单元测试、服务集成测试、WebSocket 测试和 fixture 测试 |
 
@@ -178,61 +161,24 @@ $env:DASHSCOPE_API_KEY = "<your-key>"
 | `ALTER_EGO_DEVICE_ID` | 写入健康状态和观测事件的设备标识 |
 | `ALTER_EGO_FIXTURE=1` | 启用不打开真实设备的 fixture 模式 |
 
-## PC 端深入使用
+## 板端服务与联调
 
-先完成上面的快速安装，再在**新的 PowerShell 窗口**中按需接入以下模块。进阶模式关闭 `--fixture` 后才会读取 `providers.yaml`、角色包和真实模型；每次修改环境变量或人格卡后重启服务。页面、`/health` 和 `GET /debug/events` 可用于确认各模块状态。
-
-### 1. 自己的角色与联网对话
-
-将公开示例复制为自己的角色目录，编辑 `persona.yaml` 中的 `name`、`profile`、`style` 和 `emotions`。`examples.jsonl` 需要保留为有效的 JSONL 文件；中文口吻改写会读取它。立绘放在该角色目录的 `sprites/aligned/`，文件名与 `emotions` 映射一致；没有立绘时仍可测试文字链路，但网页不会显示角色图片。新建的 `characters/my-character/` 默认被 `.gitignore` 排除。
+创建 Python 环境并安装依赖：
 
 ```powershell
-Copy-Item characters/example characters/my-character -Recurse
-$env:ALTER_EGO_CHARACTER = (Resolve-Path characters/my-character).Path
-$env:DASHSCOPE_API_KEY = "<你的 API 密钥>"
-.\.venv\Scripts\python.exe scripts/run_service.py --port 8000 --log-dir tmp/pc-real-logs
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+$env:PYTHONPATH = "$PWD\src"
 ```
 
-上述示例使用 `providers.yaml` 的 `dialog_chain` 中的 DashScope。改用其他兼容服务时，调整该文件的 `dialog_chain`、`base_url`、`model` 和 `api_key_env`，并设置对应环境变量；密钥不要写入 YAML 或提交到 GitHub。打开网页发送文字即可测试完整对话。云端请求会发送对话文本、人格提示和有限轮次上下文，并可能产生 API 费用。
+`scripts/run_service.py` 是原有的完整服务入口。它用于板端部署和带角色包、模型及外设的联调；`--fixture` 是开发测试模式，会返回预设内容，不代表真实对话。公开仓库没有私有角色包和模型，普通 PC 体验使用上面的 `scripts/run_pc.py`。
 
-公开的 `characters/example/persona.yaml` 是中文角色示例。中文路径用 `providers.yaml` 中的 `local` llama.cpp 后端做口吻改写；未启动该本地后端时，改写器会退回原文，`/health` 的 `last_rewrite_error` 可显示原因。要启用本地改写，另行准备有使用权的 GGUF 模型和 llama.cpp 服务，使其 `/completion` 地址与 `providers.yaml` 一致。日语角色将人格卡设为 `language: ja`，在 `profile.speech_samples` 写入日语示例，并将 `style.sentence_endings` 改为日语语尾；该路径使用本地敬体转换规则，不依赖小模型生成口吻。
+### 真实设备模式
 
-### 2. 语音输入与输出
+真实设备模式需要额外准备摄像头、ASR 模型、角色包、TTS 服务和相应的系统运行时。感知默认关闭，只有显式设置 `ALTER_EGO_PERCEPTION=1` 才会打开摄像头；ASR 默认关闭，只有设置模型目录并启用 `ALTER_EGO_ASR=1` 才会加载本地模型。
 
-语音识别需要自行准备 SenseVoice 的本地模型目录，至少包含 `model.int8.onnx` 和 `tokens.txt`，并安装 `requirements.txt` 中的 `numpy`、`sherpa-onnx` 等相关依赖。浏览器录音时音频由当前打开网页的 PC 麦克风采集；服务端读取以下配置：
-
-```powershell
-$env:ALTER_EGO_ASR = "1"
-$env:ALTER_EGO_ASR_MODEL = "C:\path\to\sensevoice-model"
-```
-
-语音输出可选择在线 Edge TTS，或已有的 GPT-SoVITS HTTP 服务。配置其中一种后重启主服务，并在网页打开“语音”开关；真实 TTS 会先进行预热，`/health` 可查看状态。
-
-```powershell
-$env:ALTER_EGO_TTS = "edge"
-$env:ALTER_EGO_TTS_VOICE = "<与角色语言相符的声音名称>"
-```
-
-```powershell
-$env:ALTER_EGO_TTS = "gpt-sovits"
-$env:ALTER_EGO_TTS_URL = "http://127.0.0.1:9880/tts"
-```
-
-第二种方式要求 TTS HTTP 服务已单独启动、`/tts` 可返回 WAV；本仓库不包含该服务的模型权重、训练音频或一键训练流程。具体接口与原板端适配资料见 [`docs/interfaces-v2.md`](docs/interfaces-v2.md)。
-
-### 3. 摄像头与诊断
-
-摄像头感知默认关闭。需要使用时，先安装完整依赖、准备具有相应使用权限的人脸模型，并确认 PC 摄像头可用，然后设置 `ALTER_EGO_PERCEPTION=1`，必要时通过 `ALTER_EGO_CAMERA` 选择摄像头编号。启动后用 `GET /debug/perception` 和 `GET /health` 查看状态。人脸注册工具为 `scripts/enroll_face.py`；人脸照片和特征数据保存在本地 `data/`，不会进入公开仓库。
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-$env:ALTER_EGO_PERCEPTION = "1"
-$env:ALTER_EGO_CAMERA = "0"
-```
-
-诊断时先开网页以建立播放连接，再调用 `POST /debug/chat?text=...` 测试完整文本对话，或用 `POST /debug/say?text=...` 跳过云端只测试改写与播放。`/debug/chat/reset` 清除当前会话历史；`/debug/transcribe` 只预览 ASR，不触发对话或 TTS。详细接口和参数见 [`docs/interfaces-v2.md`](docs/interfaces-v2.md)。
-
-`scripts/run_service.py` 监督它创建的主服务进程，长期无响应时会隔离并结束该进程，不会自动重启。外部 LLM 和 TTS HTTP 服务需分别启动和维护。PC 上运行不等于复现 Orange Pi AIpro 的 NPU、CANN 或整机硬件测试结果。
+生产部署建议使用 `scripts/run_service.py` 启动服务。它会监督自己创建的服务进程，在模型或播放任务长期无响应时隔离并终止本服务进程；外部 HTTP 模型服务不属于该监督器的所有范围。
 
 ## HTTP 与 WebSocket 接口
 

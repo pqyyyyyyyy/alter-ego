@@ -168,30 +168,17 @@ class Runtime:
             return
         await self.hub.send({"type": "animation", "name": key, **anim.to_dict()})
 
-    def available_sprites(self, emotion: str) -> list[str]:
-        if self.card is None or self.char_dir is None:
-            return []
-        sprite_dir = (self.char_dir / "sprites" / "aligned").resolve()
-        available = []
-        for name in self.card.sprites_for(emotion):
-            path = (sprite_dir / name).resolve()
-            if sprite_dir in path.parents and path.is_file():
-                available.append(name)
-        return available
-
-    async def send_emotion(self, emotion: str) -> str | None:
+    async def send_emotion(self, emotion: str) -> None:
         """推情绪 + 该情绪对应的立绘文件名。
 
         **文件名由后端给，前端不要自己按情绪名拼。** 一个情绪可以有多张
         候选图，轮换逻辑在后端（见 card.sprite_for）—— 前端不做业务判断。
         """
         payload: dict = {"type": "emotion", "value": emotion}
-        sprites = self.available_sprites(emotion)
-        if sprites:
-            payload["sprite"] = sprites[self._sprite_turn % len(sprites)]
+        if self.card is not None:
+            payload["sprite"] = self.card.sprite_for(emotion, self._sprite_turn)
             self._sprite_turn += 1
         await self.hub.send(payload)
-        return payload.get("sprite")
 
     def persona_context(self) -> PersonaContext:
         """用当前感知状态拼出改写上下文。"""
@@ -806,7 +793,8 @@ async def fixture_expire():
 @app.post("/debug/emotion")
 async def debug_emotion(value: str):
     """单独测试情绪立绘切换。连续调同一情绪会轮换候选图。"""
-    sprite = await rt.send_emotion(value)
+    await rt.send_emotion(value)
+    sprite = rt.card.sprite_for(value, rt._sprite_turn - 1) if rt.card else None
     return {"ok": True, "emotion": value, "sprite": sprite}
 
 
@@ -822,8 +810,7 @@ async def debug_sprites():
     sprite_dir = rt.char_dir / "sprites" / "aligned" if rt.char_dir else None
     return {
         "ok": True,
-        "character": rt.card.name,
-        "emotions": {e: rt.available_sprites(e) for e in EMOTIONS} if sprite_dir else {},
+        "emotions": {e: rt.card.sprites_for(e) for e in EMOTIONS},
         "animations": {k: a.to_dict() for k, a in rt.card.animations.items()},
         "sprite_dir": str(sprite_dir) if sprite_dir else None,
         "warnings": rt.card.validate(sprite_dir=sprite_dir),

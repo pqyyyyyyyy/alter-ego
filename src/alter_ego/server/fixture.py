@@ -11,7 +11,7 @@ import wave
 from contextlib import contextmanager
 
 from ..dialog import DialogOrchestrator
-from ..persona.card import PersonaCard, PersonaProfile
+from ..persona.card import PersonaCard
 from ..persona.examples import ExamplePool
 from ..persona.rewriter import LocalRewriter
 
@@ -99,12 +99,8 @@ class ASR:
 def configure(runtime, root):
     runtime.fixture = True
     runtime.fixture_control = FixtureControl()
-    runtime.char_dir = None
-    runtime.card = PersonaCard(
-        name='示例角色', tone='温和', language='ja',
-        sentence_endings=['ね'],
-        profile=PersonaProfile(fallback_reply='少し待ってね。'),
-    )
+    runtime.char_dir = root / 'characters' / 'geometry-b'
+    runtime.card = PersonaCard.load(runtime.char_dir / 'persona.yaml')
     runtime.registry = runtime.fixture_control.registry
     runtime.rewriter = LocalRewriter(runtime.card, ExamplePool([]), None)
     runtime.dialog = DialogOrchestrator(runtime.card, runtime.rewriter, runtime.registry)
