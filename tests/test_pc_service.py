@@ -8,6 +8,7 @@ import urllib.error
 import urllib.request
 from contextlib import contextmanager
 
+import pytest
 import uvicorn
 
 from alter_ego.llm.providers import ProviderChainError
@@ -104,3 +105,45 @@ def test_pc_accepts_webp_only_sprite(tmp_path):
     runtime = PcRuntime(tmp_path, "dashscope", False, FakeRegistry())
     assert runtime.sprite("neutral") == sprite_dir / "neutral.webp"
     assert runtime.sprite_url("neutral") == "/api/sprite/neutral"
+
+
+@pytest.mark.parametrize("provider,key_env,base_url,model", [
+    ("deepseek", "DEEPSEEK_API_KEY", "https://api.deepseek.com/chat/completions",
+     "deepseek-flash"),
+    ("openai", "OPENAI_API_KEY", "https://api.openai.com/v1/chat/completions",
+     "gpt-6-luna"),
+])
+def test_pc_routes_selected_provider_with_its_own_key(
+        monkeypatch, provider, key_env, base_url, model):
+    monkeypatch.delenv("DASHSCOPE_API_KEY", raising=False)
+    monkeypatch.setenv(key_env, "test-key")
+    app = create_app(provider_name=provider)
+    calls = []
+
+    class Response:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"choices": [{"message": {"content": json.dumps({
+                "text": "真实后端测试回复", "emotion": "neutral"})}}]}
+
+    def fake_post(url, **kwargs):
+        calls.append((url, kwargs))
+        return Response()
+
+    app.state.runtime.registry.get(provider)._session.post = fake_post
+    with running(app) as base:
+        _, status = request(base, "/api/status")
+        assert status["provider"] == provider
+        assert status["model"] == model
+        assert status["ready"]
+        _, answer = request(base, "/api/chat", {"text": "你好"})
+        assert answer["reply"] == "真实后端测试回复"
+    assert len(calls) == 1
+    assert calls[0][0] == base_url
+    assert calls[0][1]["headers"]["Authorization"] == "Bearer test-key"
+    assert calls[0][1]["json"]["model"] == model
+    if provider == "openai":
+        assert calls[0][1]["json"]["reasoning_effort"] == "none"
+        assert "temperature" not in calls[0][1]["json"]

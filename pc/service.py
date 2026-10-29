@@ -41,6 +41,9 @@ class SelectedRegistry:
         self.provider_name = provider_name
 
     def chat_with_fallback(self, messages, **kwargs):
+        if self.provider_name == "openai":
+            kwargs.pop("temperature", None)
+            kwargs["reasoning_effort"] = "none"
         return self.registry.chat_with_fallback(
             messages, chain=[self.provider_name], **kwargs
         )
@@ -52,7 +55,7 @@ class PcRuntime:
         self.character_dir = character_dir.resolve()
         self.card = PersonaCard.load(self.character_dir / "persona.yaml")
         self.provider_name = provider_name
-        self.registry = registry or ProviderRegistry(str(ROOT / "providers.yaml"))
+        self.registry = registry or ProviderRegistry(str(PC_DIR / "providers.yaml"))
         self.lock = asyncio.Lock()
 
         if registry is None:
@@ -60,10 +63,12 @@ class PcRuntime:
             key_env = provider.cfg.api_key_env
             self.missing_key = bool(key_env and not os.environ.get(key_env))
             self.key_env = key_env
+            self.model = provider.cfg.model
             selected_registry = SelectedRegistry(self.registry, provider_name)
         else:
             self.missing_key = False
             self.key_env = ""
+            self.model = ""
             selected_registry = registry
 
         examples_path = self.character_dir / "examples.jsonl"
@@ -118,6 +123,7 @@ def create_app(character_dir: Path | None = None, provider_name: str = "dashscop
             "character": runtime.card.name,
             "language": runtime.card.language,
             "provider": runtime.provider_name,
+            "model": runtime.model,
             "ready": not runtime.missing_key,
             "issue": f"请设置 {runtime.key_env} 后重启服务。" if runtime.missing_key else "",
             "local_rewrite": runtime.local_rewrite or runtime.card.language == "ja",
@@ -144,7 +150,14 @@ def create_app(character_dir: Path | None = None, provider_name: str = "dashscop
             if runtime.dialog.history_turns == previous_turns or not result.speak_ja.strip():
                 error = result.error
                 if "HTTP401" in error:
-                    detail = f"{runtime.provider_name} 鉴权失败，请检查 {runtime.key_env}。"
+                    key_name = runtime.key_env or "对应的 API 密钥"
+                    detail = f"{runtime.provider_name} 鉴权失败，请检查 {key_name}。"
+                elif "HTTP402" in error:
+                    detail = "对话服务余额不足。"
+                elif "HTTP403" in error:
+                    detail = "对话服务拒绝访问，请检查账号权限。"
+                elif "HTTP404" in error:
+                    detail = "对话模型或接口地址不存在，请检查 PC provider 配置。"
                 elif "HTTP429" in error:
                     detail = "对话服务限流或额度不足。"
                 else:

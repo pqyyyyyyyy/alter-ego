@@ -74,7 +74,7 @@ async function loadStatus() {
     showPortrait(data.sprite_url);
     ready = data.ready;
     send.disabled = !ready;
-    showStatus(data.issue || `${data.provider} 已设置 · 首次提问时验证连接 · ${data.local_rewrite ? "本地口吻处理已启用" : "显示云端原文"}`, !ready);
+    showStatus(data.issue || `${data.provider} / ${data.model} 已设置 · 首次提问时验证连接 · ${data.local_rewrite ? "本地口吻处理已启用" : "显示云端原文"}`, !ready);
   } catch (error) {
     ready = false;
     send.disabled = true;

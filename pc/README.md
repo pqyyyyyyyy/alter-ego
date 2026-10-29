@@ -1,6 +1,6 @@
 # PC 端使用
 
-PC 入口位于 `scripts/run_pc.py`，运行独立的文本对话页面。它读取现有 `PersonaCard`、`DialogOrchestrator` 和 provider 代码，但不启动摄像头、ASR、TTS 或板端 WebSocket 服务。页面的回复来自所选真实对话 provider；没有有效密钥时不会产生模拟回答。
+PC 入口位于 `scripts/run_pc.py`，运行独立的文本对话页面。它读取现有 `PersonaCard`、`DialogOrchestrator` 和 provider 代码，使用 `pc/providers.yaml` 选择模型，不修改板端的 `providers.yaml`。它不启动摄像头、ASR、TTS 或板端 WebSocket 服务。页面的回复来自所选真实对话 provider；没有有效密钥时不会产生模拟回答。
 
 ## 快速启动
 
@@ -32,23 +32,34 @@ Copy-Item characters/example characters/my-character -Recurse
 
 ## 选择对话服务
 
-默认使用 `providers.yaml` 中的 DashScope。也可以选择 DeepSeek 或智谱，并设置对应的密钥：
+默认使用 DashScope。其他服务必须同时切换 `--provider` 和相应的环境变量；仅把其他服务的密钥填进 `DASHSCOPE_API_KEY` 会被 DashScope 拒绝。
+
+DeepSeek 使用 `pc/providers.yaml` 中的 `deepseek-flash`：
 
 ```powershell
 $env:DEEPSEEK_API_KEY = Read-Host 'DeepSeek API Key'
 .\.venv\Scripts\python.exe scripts/run_pc.py --provider deepseek
 ```
 
+OpenAI API 密钥使用以下命令。ChatGPT 的订阅账号不等于 OpenAI API 密钥或 API 额度：
+
+```powershell
+$env:OPENAI_API_KEY = Read-Host 'OpenAI API Key'
+.\.venv\Scripts\python.exe scripts/run_pc.py --provider openai
+```
+
+智谱可用以下命令：
+
 ```powershell
 $env:ZHIPU_API_KEY = Read-Host 'Zhipu API Key'
 .\.venv\Scripts\python.exe scripts/run_pc.py --provider zhipu
 ```
 
-每次只调用 `--provider` 选定的服务。更改环境变量或人格卡后重启 PC 服务。页面“新对话”按钮会清空当前进程中的历史记录，服务重启也会清空。PC 快速入口只供单人本机使用；它将对话文本、人格设定和有限轮次上下文发送给选定的云端服务，不发送立绘或本地图片。
+每次只调用 `--provider` 选定的服务。`GET /api/status` 会显示当前 provider 和模型；出现 401 时先核对它们与密钥来源是否一致。更改环境变量或人格卡后重启 PC 服务。页面“新对话”按钮会清空当前进程中的历史记录，服务重启也会清空。PC 快速入口只供单人本机使用；它将对话文本、人格设定和有限轮次上下文发送给选定的云端服务，不发送立绘或本地图片。
 
 ## 本地口吻改写
 
-中文角色若需要运行自研口吻改写模块，先自行准备合法使用的 GGUF 模型和 llama.cpp 服务，使 `providers.yaml` 的 `local.completion_url` 可访问，再加上 `--local-rewrite`：
+中文角色若需要运行自研口吻改写模块，先自行准备合法使用的 GGUF 模型和 llama.cpp 服务，使 `pc/providers.yaml` 的 `local.completion_url` 可访问，再加上 `--local-rewrite`：
 
 ```powershell
 .\.venv\Scripts\python.exe scripts/run_pc.py --local-rewrite
