@@ -28,7 +28,7 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 
 关闭服务时在运行窗口按 `Ctrl+C`。端口被占用时将命令中的 `8000` 改成其他空闲端口，并用相同端口打开网页。`scripts/run_service.py` 会自行设置子进程的 `PYTHONPATH`，按上述命令启动不需要手动设置。更换真实角色、对话、语音和摄像头的步骤见下方[PC 端深入使用](#pc-端深入使用)。
 
-要让角色根据提问回答，先在运行窗口按 `Ctrl+C` 停止 fixture，然后在**项目目录**的新 PowerShell 窗口执行以下命令。此例使用仓库自带的中文示例人格卡和 DashScope 对话服务；将 API 密钥输入到提示中，密钥不会写进仓库。没有启动本地口吻改写模型时，云端回答仍会显示，但本地中文改写会退回原文。
+要让角色根据提问回答，先在运行窗口按 `Ctrl+C` 停止 fixture，然后在**项目目录**的新 PowerShell 窗口执行以下命令。此例使用仓库自带的中文示例人格卡和 DashScope 对话服务；将有效的 DashScope API 密钥输入到提示中，密钥不会写进仓库。公开示例没有立绘，页面只显示文字；默认没有语音输出。没有启动本地口吻改写模型时，云端回答仍会显示，但本地中文改写会退回原文。
 
 ```powershell
 Set-Location -LiteralPath (Join-Path $env:USERPROFILE 'alter-ego')
@@ -36,7 +36,7 @@ $env:DASHSCOPE_API_KEY = Read-Host 'DashScope API Key'
 .\.venv\Scripts\python.exe scripts/run_service.py --port 8000 --log-dir tmp/pc-real-logs
 ```
 
-如果仓库或虚拟环境建在别处，第一行改成项目的完整路径，第三行改用该虚拟环境中 `python.exe` 的完整路径。云端请求会产生 API 费用。若回答变成固定的预设回复，在新窗口执行 `Invoke-RestMethod http://127.0.0.1:8000/health` 并查看 `last_dialog_error`；该项可区分接口失败与正常回答。
+如果仓库或虚拟环境建在别处，第一行改成项目的完整路径，第三行改用该虚拟环境中 `python.exe` 的完整路径。云端请求会产生 API 费用。若回答变成固定的预设回复，在新窗口执行 `Invoke-RestMethod http://127.0.0.1:8000/health` 并查看 `last_dialog_error`；其中的 `HTTP401 authentication` 表示 API 鉴权失败，需核对密钥后重启服务。
 
 ## 项目要解决的问题
 
