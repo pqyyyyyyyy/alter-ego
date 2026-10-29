@@ -15,6 +15,7 @@
   const logList = document.getElementById("dialog-log-list");
   const logEmpty = document.getElementById("dialog-log-empty");
   const logClear = document.getElementById("log-clear");
+  const characterLabel = document.getElementById("brand-character");
   const perceptionStatus = document.getElementById("perception-status");
   const cameraToggle = document.getElementById("camera-toggle");
   const cameraFeedback = document.getElementById("camera-feedback");
@@ -37,6 +38,7 @@
   let displayedSprite = "";
   let lastSpriteName = "";
   let lastEmotion = "neutral";
+  let characterName = "角色";
   let initialSpriteRequest = null;
   const spriteCache = new Map();
   let currentAudio = null;
@@ -187,7 +189,7 @@
       const cached = audioCache.has(key);
       entry.body.disabled = !cached || !outputVoice.enabled || outputWarming() || !!voiceSession ||
         chatPending && activeSpeech?.speech_id !== key || !!activeSpeech && activeSpeech.speech_id !== key;
-      entry.body.setAttribute("aria-label", cached ? `重播七海语音：${entry.text}` : entry.text);
+      entry.body.setAttribute("aria-label", cached ? `重播${characterName}语音：${entry.text}` : entry.text);
     }
   }
 
@@ -455,7 +457,7 @@
     content.className = "dialog-entry-content";
     const meta = document.createElement("div");
     meta.className = "dialog-entry-meta";
-    meta.textContent = role === "user" ? "你" : "七海千秋";
+    meta.textContent = role === "user" ? "你" : characterName;
     if (role === "character" && emotion) {
       const emotionEl = document.createElement("span");
       emotionEl.className = "dialog-entry-emotion";
@@ -533,6 +535,10 @@
     initialSpriteRequest = fetch("/debug/sprites", {headers: {Accept: "application/json"}})
       .then((response) => response.ok ? response.json() : null)
       .then((data) => {
+        if (typeof data?.character === "string" && data.character.trim()) {
+          characterName = data.character.trim();
+          if (characterLabel) characterLabel.textContent = characterName;
+        }
         const name = initialSpriteFor(state, data);
         // If a live emotion arrived while the sprite manifest was loading, do
         // not let the late initial request overwrite that newer expression.

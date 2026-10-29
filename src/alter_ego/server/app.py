@@ -175,7 +175,7 @@ class Runtime:
         候选图，轮换逻辑在后端（见 card.sprite_for）—— 前端不做业务判断。
         """
         payload: dict = {"type": "emotion", "value": emotion}
-        if self.card is not None:
+        if self.card is not None and self.char_dir is not None:
             payload["sprite"] = self.card.sprite_for(emotion, self._sprite_turn)
             self._sprite_turn += 1
         await self.hub.send(payload)
@@ -794,7 +794,7 @@ async def fixture_expire():
 async def debug_emotion(value: str):
     """单独测试情绪立绘切换。连续调同一情绪会轮换候选图。"""
     await rt.send_emotion(value)
-    sprite = rt.card.sprite_for(value, rt._sprite_turn - 1) if rt.card else None
+    sprite = rt.card.sprite_for(value, rt._sprite_turn - 1) if rt.card and rt.char_dir else None
     return {"ok": True, "emotion": value, "sprite": sprite}
 
 
@@ -810,7 +810,8 @@ async def debug_sprites():
     sprite_dir = rt.char_dir / "sprites" / "aligned" if rt.char_dir else None
     return {
         "ok": True,
-        "emotions": {e: rt.card.sprites_for(e) for e in EMOTIONS},
+        "character": rt.card.name,
+        "emotions": {e: rt.card.sprites_for(e) for e in EMOTIONS} if sprite_dir else {},
         "animations": {k: a.to_dict() for k, a in rt.card.animations.items()},
         "sprite_dir": str(sprite_dir) if sprite_dir else None,
         "warnings": rt.card.validate(sprite_dir=sprite_dir),
