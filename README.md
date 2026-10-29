@@ -6,7 +6,7 @@ Alter-Ego 是一个面向边缘 AI 开发板的端侧虚拟形象交互运行时
 
 ## PC 端快速使用（Windows PowerShell）
 
-需要 Python 3.10 或 3.11、Git 和浏览器。以下命令在 PowerShell 中执行，会将仓库克隆到当前 Windows 用户目录下的 `alter-ego` 文件夹，并打印完整路径。fixture 模式只使用公开代码和内置模拟服务，不需要板卡、摄像头、模型权重、API 密钥或私人角色包。
+需要 Python 3.10 或 3.11、Git 和浏览器。以下命令在 PowerShell 中执行，会将仓库克隆到当前 Windows 用户目录下的 `alter-ego` 文件夹，并打印完整路径。fixture 模式只使用公开代码和内置模拟服务，不需要板卡、摄像头、模型权重、API 密钥或私人角色包。它用于检查页面、对话链路和播放流程，**不生成针对提问的回答**。
 
 ```powershell
 $projectDir = Join-Path $env:USERPROFILE 'alter-ego'
@@ -20,13 +20,23 @@ python -m venv .venv
 
 仓库已经在电脑上时，跳过 `git clone`，用实际完整路径进入项目目录。如果不知道路径，可在资源管理器中打开包含 `README.md` 的项目文件夹，点击地址栏复制完整路径，再执行 `Set-Location -LiteralPath '复制的路径'`；也可以在该文件夹地址栏输入 `powershell` 并按回车，直接在此处打开终端。通过浏览器下载 ZIP 的用户需要先解压，进入解压后包含 `README.md` 的文件夹。
 
-在浏览器打开 `http://127.0.0.1:8000/`，等状态显示“已连接”后在输入框发送文字。页面会显示模拟角色的日语回复和中文字幕，并播放短提示音；该声音不是语音合成。fixture 没有立绘，舞台上不会出现角色图片，录音预览也是模拟识别。用另一个 PowerShell 窗口检查服务：
+在浏览器打开 `http://127.0.0.1:8000/`，等状态显示“已连接”后在输入框发送文字。**无论输入什么，fixture 都固定回复“见到你很高兴。”**，并播放短提示音；该声音不是语音合成。fixture 没有立绘，舞台上不会出现角色图片，录音预览也是模拟识别。用另一个 PowerShell 窗口检查服务：
 
 ```powershell
 Invoke-RestMethod http://127.0.0.1:8000/health
 ```
 
 关闭服务时在运行窗口按 `Ctrl+C`。端口被占用时将命令中的 `8000` 改成其他空闲端口，并用相同端口打开网页。`scripts/run_service.py` 会自行设置子进程的 `PYTHONPATH`，按上述命令启动不需要手动设置。更换真实角色、对话、语音和摄像头的步骤见下方[PC 端深入使用](#pc-端深入使用)。
+
+要让角色根据提问回答，先在运行窗口按 `Ctrl+C` 停止 fixture，然后在**项目目录**的新 PowerShell 窗口执行以下命令。此例使用仓库自带的中文示例人格卡和 DashScope 对话服务；将 API 密钥输入到提示中，密钥不会写进仓库。没有启动本地口吻改写模型时，云端回答仍会显示，但本地中文改写会退回原文。
+
+```powershell
+Set-Location -LiteralPath (Join-Path $env:USERPROFILE 'alter-ego')
+$env:DASHSCOPE_API_KEY = Read-Host 'DashScope API Key'
+.\.venv\Scripts\python.exe scripts/run_service.py --port 8000 --log-dir tmp/pc-real-logs
+```
+
+如果仓库或虚拟环境建在别处，第一行改成项目的完整路径，第三行改用该虚拟环境中 `python.exe` 的完整路径。云端请求会产生 API 费用。若回答变成固定的预设回复，在新窗口执行 `Invoke-RestMethod http://127.0.0.1:8000/health` 并查看 `last_dialog_error`；该项可区分接口失败与正常回答。
 
 ## 项目要解决的问题
 
