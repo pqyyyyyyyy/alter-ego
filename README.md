@@ -4,22 +4,6 @@ Alter-Ego 是一个面向边缘 AI 开发板的端侧虚拟形象交互运行时
 
 项目的目标不是把一个固定角色写死在程序里，而是提供一套可以更换人格卡、语料、声音和形象素材的运行时。角色素材与引擎分离，使用者可以在拥有合法授权的前提下导入自己的角色包。
 
-## PC 快速开始（Windows PowerShell）
-
-PC 入口与板端服务分开，提供公开示例角色的真实文本对话。需要 Python 3.10/3.11、Git，以及所选对话服务的有效 API 密钥。命令在 PowerShell 中执行：
-
-```powershell
-$projectDir = Join-Path $env:USERPROFILE 'alter-ego'
-git clone https://github.com/pqyyyyyyyy/alter-ego.git $projectDir
-Set-Location -LiteralPath $projectDir
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-pc.txt
-$env:DASHSCOPE_API_KEY = Read-Host 'DashScope API Key'
-.\.venv\Scripts\python.exe scripts/run_pc.py
-```
-
-在浏览器打开 `http://127.0.0.1:8765/`。已经下载仓库时，跳过 `git clone`，先进入包含 `README.md` 的实际目录再创建虚拟环境。可以在资源管理器打开该目录，在地址栏输入 `powershell` 启动终端。PC 端会从已设置的 API 密钥自动选择平台，模型名由配置文件提供；上例使用 DashScope。PC 页面没有固定模拟回复；密钥无效或服务不可用时会显示错误。公开示例未包含立绘和语音模型，因此只显示文字和角色占位形象。自定义人格卡、立绘、日语规则和本地改写见 [PC 详细使用](pc/README.md)。
-
 ## 项目要解决的问题
 
 在 8 TOPS 级边缘设备上同时运行视觉、语音和对话模块时，有限的 NPU、CPU 和内存会产生资源争用。若所有模型一直驻留，设备容易超出资源预算；若每次请求都重新加载模型，首次响应会出现明显延迟。
@@ -120,7 +104,6 @@ $env:ALTER_EGO_CHARACTER = "C:\path\to\characters\my-character"
 | `src/alter_ego/server/voice_output.py` | 音频输出状态和播放确认管理 |
 | `src/alter_ego/observability.py` | 有界事件记录、耗时和健康状态 |
 | `web/` | 浏览器端状态渲染、字幕、音频播放和立绘动画 |
-| `pc/` | 独立 PC 文本对话页面与服务，不修改板端 WebSocket 链路 |
 | `scripts/` | 语音、感知、阈值、服务启动和数据准备工具 |
 | `tests/` | 单元测试、服务集成测试、WebSocket 测试和 fixture 测试 |
 
@@ -161,7 +144,7 @@ $env:DASHSCOPE_API_KEY = "<your-key>"
 | `ALTER_EGO_DEVICE_ID` | 写入健康状态和观测事件的设备标识 |
 | `ALTER_EGO_FIXTURE=1` | 启用不打开真实设备的 fixture 模式 |
 
-## 板端服务与联调
+## 本地启动
 
 创建 Python 环境并安装依赖：
 
@@ -172,7 +155,19 @@ python -m pip install -r requirements.txt
 $env:PYTHONPATH = "$PWD\src"
 ```
 
-`scripts/run_service.py` 是原有的完整服务入口。它用于板端部署和带角色包、模型及外设的联调；`--fixture` 是开发测试模式，会返回预设内容，不代表真实对话。公开仓库没有私有角色包和模型，普通 PC 体验使用上面的 `scripts/run_pc.py`。
+### Fixture 模式
+
+Fixture 模式使用模拟感知、模拟 ASR 和提示音，不打开摄像头、不读取真实用户档案，适合检查服务协议和前端链路：
+
+```powershell
+python scripts/run_service.py --fixture --port 8000
+```
+
+浏览器访问 `http://127.0.0.1:8000/`。健康状态位于 `/health`，完整对话调试入口为：
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/debug/chat?text=你好"
+```
 
 ### 真实设备模式
 
