@@ -217,3 +217,29 @@ def test_pc_auto_falls_back_to_next_key(monkeypatch):
         assert answer["reply"] == "备用平台回复"
         assert answer["provider"] == "deepseek"
     assert calls == ["dashscope", "deepseek"]
+
+
+def test_pc_reports_each_provider_failure_without_upstream_text(monkeypatch):
+    monkeypatch.setenv("DASHSCOPE_API_KEY", "dashscope-test-key")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "deepseek-test-key")
+    for key in ("ZHIPU_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    app = create_app()
+
+    def fail_with(status):
+        def fail(url, **kwargs):
+            response = requests.Response()
+            response.status_code = status
+            response._content = b'{"error":"secret upstream text"}'
+            raise requests.HTTPError(response=response)
+        return fail
+
+    app.state.runtime.registry.get("dashscope")._session.post = fail_with(401)
+    app.state.runtime.registry.get("deepseek")._session.post = fail_with(404)
+    with running(app) as base:
+        with pytest.raises(urllib.error.HTTPError) as captured:
+            request(base, "/api/chat", {"text": "你好"})
+        assert captured.value.code == 502
+        detail = json.load(captured.value)["detail"]
+        assert detail == "dashscope: HTTP401 authentication；deepseek: HTTP404 endpoint_or_model_not_found"
+        assert "secret upstream text" not in detail

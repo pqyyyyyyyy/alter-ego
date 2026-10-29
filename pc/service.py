@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -40,9 +41,11 @@ class SelectedRegistry:
         self.registry = registry
         self.provider_names = provider_names
         self.active_name = ""
+        self.last_failures: list[tuple[str, str]] = []
 
     def chat_with_fallback(self, messages, **kwargs):
-        errors = []
+        self.active_name = ""
+        self.last_failures = []
         for name in self.provider_names:
             options = kwargs.copy()
             if name == "openai":
@@ -53,11 +56,15 @@ class SelectedRegistry:
                     messages, chain=[name], **options
                 )
             except ProviderChainError as exc:
-                errors.append(f"{name}: {str(exc)}")
+                reason = re.search(r"HTTP\d{3} [a-z_]+|request_timeout|tls_error|"
+                                   r"proxy_error|connection_error|response_format_error|"
+                                   r"provider_error", str(exc))
+                self.last_failures.append((name, reason.group(0) if reason else "调用失败"))
                 continue
             self.active_name = name
-            return reply, "; ".join(part for part in (*errors, note) if part)
-        raise ProviderChainError("; ".join(errors))
+            return reply, note
+        raise ProviderChainError("; ".join(f"{name}: {reason}"
+                                            for name, reason in self.last_failures))
 
 
 class PcRuntime:
@@ -167,9 +174,11 @@ def create_app(character_dir: Path | None = None, provider_name: str = "auto",
             result = await asyncio.to_thread(runtime.dialog.reply, message)
             if runtime.dialog.history_turns == previous_turns or not result.speak_ja.strip():
                 error = result.error
-                if "HTTP401" in error:
-                    key_name = runtime.key_env or "对应的 API 密钥"
-                    detail = f"鉴权失败，请检查当前平台的 {key_name}。"
+                failures = getattr(runtime.selected_registry, "last_failures", [])
+                if failures and not getattr(runtime.selected_registry, "active_name", ""):
+                    detail = "；".join(f"{name}: {reason}" for name, reason in failures)
+                elif "HTTP401" in error:
+                    detail = "对话服务鉴权失败。"
                 elif "HTTP402" in error:
                     detail = "对话服务余额不足。"
                 elif "HTTP403" in error:
